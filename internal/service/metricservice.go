@@ -23,23 +23,18 @@ func NewMetricService(repo repository.Storage) MetricService {
 }
 
 func (s *metricService) UpdateMetric(metric models.Metrics) error {
-	// Здесь можно добавить бизнес-логику:
-	// - валидацию данных
-	// - логирование
-	// - кэширование
-	// - вычисление хешей и т.д.
-
+	// Здесь можно добавить бизнес-логику
 	// Пока просто делегируем в репозиторий
 	return s.repo.UpdateMetric(metric)
 }
 
 func (s *metricService) GetGauge(name string) (float64, bool) {
-	// Бизнес-логика для получения gauge
+	// Возвращаем gauge по имени
 	return s.repo.GetGauge(name)
 }
 
 func (s *metricService) GetCounter(name string) (int64, bool) {
-	// Бизнес-логика для получения counter
+	// Возвращаем counter по имени
 	return s.repo.GetCounter(name)
 }
 
