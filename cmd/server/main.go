@@ -6,6 +6,7 @@ import (
 	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
+	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 )
 
 func main() {
@@ -16,7 +17,8 @@ func main() {
 
 func run() error {
 	storage := repository.NewMemStorage()
-	metricHandler := handler.NewMetricHandler(storage)
+	metricService := service.NewMetricService(storage)
+	metricHandler := handler.NewMetricHandler(metricService)
 
 	mux := http.NewServeMux()
 
