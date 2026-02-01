@@ -55,17 +55,17 @@ func (ms *MemStorage) GetGauge(name string) (float64, bool) {
 	return value, ok
 }
 
-func (s *MemStorage) GetAllGauges() map[string]float64 {
-	copied := make(map[string]float64, len(s.gauges))
-	for k, v := range s.gauges {
+func (ms *MemStorage) GetAllGauges() map[string]float64 {
+	copied := make(map[string]float64, len(ms.gauges))
+	for k, v := range ms.gauges {
 		copied[k] = v
 	}
 	return copied
 }
 
-func (s *MemStorage) GetAllCounters() map[string]int64 {
-	copied := make(map[string]int64, len(s.counters))
-	for k, v := range s.counters {
+func (ms *MemStorage) GetAllCounters() map[string]int64 {
+	copied := make(map[string]int64, len(ms.counters))
+	for k, v := range ms.counters {
 		copied[k] = v
 	}
 	return copied
