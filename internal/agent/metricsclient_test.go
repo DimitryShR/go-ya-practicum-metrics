@@ -25,7 +25,7 @@ func TestNewMetricsClient(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_GetMetricUrl(t *testing.T) {
+func TestMetricsClient_GetMetricURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		metric   models.Metrics
@@ -88,7 +88,7 @@ func TestMetricsClient_GetMetricUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := client.GetMetricUrl(tt.metric)
+			got, err := client.GetMetricURL(tt.metric)
 
 			if tt.wantErr {
 				if err == nil {
@@ -104,7 +104,7 @@ func TestMetricsClient_GetMetricUrl(t *testing.T) {
 			}
 
 			if got != tt.expected {
-				t.Errorf("GetMetricUrl() = %v, want %v", got, tt.expected)
+				t.Errorf("GetMetricURL() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
@@ -181,12 +181,12 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid URL from GetMetricUrl", func(t *testing.T) {
+	t.Run("Invalid URL from GetMetricURL", func(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
 
-		// Метрика с nil значением вызовет ошибку в GetMetricUrl
+		// Метрика с nil значением вызовет ошибку в GetMetricURL
 		metric := models.Metrics{
 			MType: models.Gauge,
 			ID:    "testMetric",
@@ -195,11 +195,11 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		err := client.SendMetric(metric)
 		if err == nil {
-			t.Error("Expected error from GetMetricUrl but got none")
+			t.Error("Expected error from GetMetricURL but got none")
 		}
 		expectedErr := "failed to get metric URL: gauge metric value is nil"
 		if err == nil || err.Error() != expectedErr {
-			t.Errorf("Expected GetMetricUrl error, got %v", err)
+			t.Errorf("Expected GetMetricURL error, got %v", err)
 		}
 	})
 }

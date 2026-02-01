@@ -23,7 +23,7 @@ func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 	}
 }
 
-func (c *MetricsClient) GetMetricUrl(metric models.Metrics) (string, error) {
+func (c *MetricsClient) GetMetricURL(metric models.Metrics) (string, error) {
 	var url string
 
 	switch metric.MType {
@@ -48,7 +48,7 @@ func (c *MetricsClient) GetMetricUrl(metric models.Metrics) (string, error) {
 }
 
 func (c *MetricsClient) SendMetric(metric models.Metrics) error {
-	url, err := c.GetMetricUrl(metric)
+	url, err := c.GetMetricURL(metric)
 	if err != nil {
 		return fmt.Errorf("failed to get metric URL: %w", err)
 	}
