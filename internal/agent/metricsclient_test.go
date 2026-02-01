@@ -17,7 +17,7 @@ func TestNewMetricsClient(t *testing.T) {
 	client := NewMetricsClient(defaultCfg)
 
 	if client == nil {
-		t.Error("Expected MetricsClient to be created")
+		t.Fatal("Expected MetricsClient to be created, got nil")
 	}
 
 	if client.config != defaultCfg {
@@ -85,6 +85,9 @@ func TestMetricsClient_GetMetricURL(t *testing.T) {
 	}
 
 	client := NewMetricsClient(defaultCfg)
+	if client == nil {
+		t.Fatal("Failed to create MetricsClient")
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -125,6 +128,9 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 
 		metric := models.Metrics{
 			MType: models.Gauge,
@@ -145,6 +151,9 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 
 		metric := models.Metrics{
 			MType: models.Gauge,
@@ -166,6 +175,14 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig("http://invalid-server:9999")
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
+
+		// Проверяем, что httpClient существует перед установкой timeout
+		if client.httpClient == nil {
+			t.Fatal("httpClient is nil")
+		}
 		// Уменьшаем timeout для быстрого падения теста
 		client.httpClient.Timeout = 100 * time.Millisecond
 
@@ -185,7 +202,9 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
-
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 		// Метрика с nil значением вызовет ошибку в GetMetricURL
 		metric := models.Metrics{
 			MType: models.Gauge,
@@ -215,6 +234,9 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 
 		metrics := []models.Metrics{
 			{
@@ -257,6 +279,9 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 
 		metrics := []models.Metrics{
 			{
@@ -290,6 +315,9 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
 
 		if err := client.SendMetrics([]models.Metrics{}); err != nil {
 			t.Errorf("SendMetrics with empty slice should not error, got %v", err)
