@@ -36,7 +36,7 @@ func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Requ
 }
 
 // GetMetricValue - обработчик GET /value/<type>/<name>
-func (h *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
+func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -60,7 +60,7 @@ func (h *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 
 	switch models.MetricType(metricType) {
 	case models.Gauge:
-		value, ok := h.service.GetGauge(metricName)
+		value, ok := mh.service.GetGauge(metricName)
 		if !ok {
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
@@ -70,7 +70,7 @@ func (h *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%v", value)
 
 	case models.Counter:
-		value, ok := h.service.GetCounter(metricName)
+		value, ok := mh.service.GetCounter(metricName)
 		if !ok {
 			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
@@ -85,13 +85,13 @@ func (h *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAllMetrics - обработчик GET / (HTML страница со всеми метриками)
-func (h *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
+func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || r.URL.Path != "/" {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
 
-	gauges, counters := h.service.GetAllGauges(), h.service.GetAllCounters()
+	gauges, counters := mh.service.GetAllGauges(), mh.service.GetAllCounters()
 
 	// HTML шаблон
 	tmpl := `
