@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -23,14 +23,7 @@ func run() error {
 
 	r := chi.NewRouter()
 
-	// Адаптер inline
-	parseUpdatePathAdapter := func(next http.Handler) http.Handler {
-		return middleware.ParseUpdatePath(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r)
-		})
-	}
-
-	r.With(parseUpdatePathAdapter).Post("/update/*", metricHandler.UpdateMetricHandler)
+	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)
 
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)

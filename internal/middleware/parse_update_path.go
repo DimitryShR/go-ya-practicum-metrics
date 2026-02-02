@@ -13,6 +13,14 @@ type MetricKey string
 
 const Metric MetricKey = "metric"
 
+// Адаптер Middleware для разбора пути /update/<type>/<name>/<value>
+func ParseUpdatePathHandler(next http.Handler) http.Handler {
+	return ParseUpdatePath(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Middleware функция для разбора пути /update/<type>/<name>/<value>ы
 func ParseUpdatePath(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Middleware logic to parse the update path
