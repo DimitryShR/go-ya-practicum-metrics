@@ -4,9 +4,10 @@ import (
 	"net/http"
 
 	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -20,10 +21,19 @@ func run() error {
 	metricService := service.NewMetricService(storage)
 	metricHandler := handler.NewMetricHandler(metricService)
 
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	updateHandler := middleware.ParseUpdatePath(http.HandlerFunc(metricHandler.UpdateMetricHandler))
+	// Адаптер inline
+	parseUpdatePathAdapter := func(next http.Handler) http.Handler {
+		return middleware.ParseUpdatePath(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
+	}
 
-	mux.HandleFunc(`/update/`, updateHandler)
-	return http.ListenAndServe(`:8080`, mux)
+	r.With(parseUpdatePathAdapter).Post("/update/*", metricHandler.UpdateMetricHandler)
+
+	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
+	r.Get("/", metricHandler.GetAllMetrics)
+
+	return http.ListenAndServe(":8080", r)
 }

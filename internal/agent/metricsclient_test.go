@@ -25,7 +25,7 @@ func TestNewMetricsClient(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_GetMetricURL(t *testing.T) {
+func TestMetricsClient_getMetricURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		metric   models.Metrics
@@ -91,7 +91,7 @@ func TestMetricsClient_GetMetricURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := client.GetMetricURL(tt.metric)
+			got, err := client.getMetricURL(tt.metric)
 
 			if tt.wantErr {
 				if err == nil {
@@ -180,11 +180,11 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		}
 
 		// Проверяем, что httpClient существует перед установкой timeout
-		if client.httpClient == nil {
+		if client.client == nil {
 			t.Fatal("httpClient is nil")
 		}
 		// Уменьшаем timeout для быстрого падения теста
-		client.httpClient.Timeout = 100 * time.Millisecond
+		client.client.SetTimeout(100 * time.Millisecond)
 
 		metric := models.Metrics{
 			MType: models.Gauge,
@@ -198,14 +198,14 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		}
 	})
 
-	t.Run("Invalid URL from GetMetricURL", func(t *testing.T) {
+	t.Run("Invalid URL from getMetricURL", func(t *testing.T) {
 
 		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
 		}
-		// Метрика с nil значением вызовет ошибку в GetMetricURL
+		// Метрика с nil значением вызовет ошибку в getMetricURL
 		metric := models.Metrics{
 			MType: models.Gauge,
 			ID:    "testMetric",
@@ -214,11 +214,11 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 		err := client.SendMetric(metric)
 		if err == nil {
-			t.Error("Expected error from GetMetricURL but got none")
+			t.Error("Expected error from getMetricURL but got none")
 		}
 		expectedErr := "failed to get metric URL: gauge metric value is nil"
 		if err == nil || err.Error() != expectedErr {
-			t.Errorf("Expected GetMetricURL error, got %v", err)
+			t.Errorf("Expected getMetricURL error, got %v", err)
 		}
 	})
 }
