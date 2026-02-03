@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -42,6 +43,10 @@ func (ac *AgentConfig) parseFlags() {
 
 	flag.Parse()
 
+	// Проверяем наличие схемы, если нет, то добавляем
+	if idx := regexp.MustCompile(`.*?:\/\/`).FindStringIndex(ac.ServerAddress); idx == nil {
+		ac.ServerAddress = "http://" + ac.ServerAddress
+	}
 	// Конвертируем в time.Duration
 	ac.PollInterval = time.Duration(pollIntervalSec * float64(time.Second))
 	ac.ReportInterval = time.Duration(reportIntervalSec * float64(time.Second))
