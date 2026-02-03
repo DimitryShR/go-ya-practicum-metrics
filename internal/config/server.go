@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 )
 
 type ServerConfig struct {
@@ -22,13 +21,6 @@ func NewServerConfig() *ServerConfig {
 func (sc *ServerConfig) parseFlags() {
 	flag.StringVar(&sc.Address, "a", sc.Address, "Server address")
 	flag.Parse()
-
-	// Проверяем наличие схемы, если нет, то добавляем
-	if idx := regexp.MustCompile(`.*?:\/\/`).FindStringIndex(sc.Address); idx == nil {
-		if idx := regexp.MustCompile(`^:`).FindStringIndex(sc.Address); idx == nil {
-			sc.Address = "http://" + sc.Address
-		}
-	}
 
 	// Проверяем, что не переданы неизвестные флаги
 	if flag.NArg() > 0 {
