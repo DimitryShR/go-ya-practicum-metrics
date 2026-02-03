@@ -15,7 +15,7 @@ type AgentConfig struct {
 
 func NewAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{
-		ServerAddress:  "localhost:8080",
+		ServerAddress:  "http://localhost:8080",
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
 	}

@@ -12,7 +12,7 @@ type ServerConfig struct {
 
 func NewServerConfig() *ServerConfig {
 	cfg := &ServerConfig{
-		Address: "localhost:8080",
+		Address: ":8080",
 	}
 	cfg.parseFlags()
 	return cfg
