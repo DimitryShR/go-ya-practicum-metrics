@@ -11,7 +11,7 @@ import (
 	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
 )
 
-var defaultCfg *config.AgentConfig = config.NewDefaultAgentConfig()
+var defaultCfg *config.AgentConfig = config.NewTestAgentConfig("http://localhost:8080")
 
 func TestNewMetricsClient(t *testing.T) {
 	client := NewMetricsClient(defaultCfg)
@@ -126,7 +126,7 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
+		cfg := config.NewTestAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -149,7 +149,7 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
+		cfg := config.NewTestAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -173,7 +173,7 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 	t.Run("Network error", func(t *testing.T) {
 
-		cfg := config.NewCustomServerAddressAgentConfig("http://invalid-server:9999")
+		cfg := config.NewTestAgentConfig("http://invalid-server:9999")
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -200,7 +200,7 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 
 	t.Run("Invalid URL from getMetricURL", func(t *testing.T) {
 
-		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
+		cfg := config.NewTestAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -232,7 +232,7 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
+		cfg := config.NewTestAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -277,7 +277,7 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := config.NewCustomServerAddressAgentConfig(server.URL)
+		cfg := config.NewTestAgentConfig(server.URL)
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
@@ -313,7 +313,7 @@ func TestMetricsClient_SendMetrics(t *testing.T) {
 
 	t.Run("Empty metrics slice", func(t *testing.T) {
 
-		cfg := config.NewCustomServerAddressAgentConfig("http://localhost:8080")
+		cfg := config.NewTestAgentConfig("http://localhost:8080")
 		client := NewMetricsClient(cfg)
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")

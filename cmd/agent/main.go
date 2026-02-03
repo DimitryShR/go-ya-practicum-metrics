@@ -20,7 +20,7 @@ func main() {
 	defer stop()
 
 	// Загружаем конфигурацию
-	cfg := config.NewDefaultAgentConfig()
+	cfg := config.NewAgentConfig()
 
 	// Создаем и запускаем агент
 	ag := agent.NewAgent(cfg)

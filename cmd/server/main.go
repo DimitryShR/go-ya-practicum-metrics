@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
+	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
@@ -17,6 +19,9 @@ func main() {
 }
 
 func run() error {
+	cfg := config.NewServerConfig()
+	fmt.Printf("Starting server on %s\n", cfg.Address)
+
 	storage := repository.NewMemStorage()
 	metricService := service.NewMetricService(storage)
 	metricHandler := handler.NewMetricHandler(metricService)
@@ -28,5 +33,5 @@ func run() error {
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
-	return http.ListenAndServe(":8080", r)
+	return http.ListenAndServe(cfg.Address, r)
 }
