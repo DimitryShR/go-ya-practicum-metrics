@@ -1,8 +1,8 @@
 package service
 
 import (
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
-	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 )
 
 // MetricService определяет бизнес-логику работы с метриками

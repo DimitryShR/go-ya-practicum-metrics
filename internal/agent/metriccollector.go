@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"runtime"
 
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
 type MetricsCollector struct {

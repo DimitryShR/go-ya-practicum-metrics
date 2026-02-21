@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	agent "github.com/DimitryShR/go-ya-practicum-metrics/internal/agent"
-	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/agent"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 )
 
 func main() {

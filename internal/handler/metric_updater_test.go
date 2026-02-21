@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

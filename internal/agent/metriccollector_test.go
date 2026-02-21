@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

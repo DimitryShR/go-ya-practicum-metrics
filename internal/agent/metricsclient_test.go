@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
 var defaultCfg *config.AgentConfig = config.NewTestAgentConfig("http://localhost:8080")

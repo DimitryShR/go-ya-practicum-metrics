@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
-	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
-	repository "github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
-	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 

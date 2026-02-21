@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
-	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 )
 
 type MetricHandler struct {

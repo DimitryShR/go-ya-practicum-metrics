@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/go-resty/resty/v2"
 )
 
