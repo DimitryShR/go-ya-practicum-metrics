@@ -6,10 +6,12 @@ import (
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -22,6 +24,13 @@ func run() error {
 	cfg := config.NewServerConfig()
 	fmt.Printf("Starting server on %s\n", cfg.Address)
 
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		return err
+	}
+	defer logger.Log.Sync()
+
+	logger.Log.Info("Running server", zap.String("address", cfg.Address))
+
 	storage := repository.NewMemStorage()
 	metricService := service.NewMetricService(storage)
 	metricHandler := handler.NewMetricHandler(metricService)
@@ -33,5 +42,5 @@ func run() error {
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
-	return http.ListenAndServe(cfg.Address, r)
+	return http.ListenAndServe(cfg.Address, middleware.LogRequest(r))
 }
