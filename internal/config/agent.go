@@ -100,7 +100,7 @@ func (ac *AgentConfig) parseFlags() error {
 	// Проверяем, что не переданы неизвестные флаги
 	if flag.NArg() > 0 {
 		flag.Usage()
-		return fmt.Errorf("unknown flags or arguments: %v.", flag.Args())
+		return fmt.Errorf("unknown flags or arguments: %v", flag.Args())
 	}
 	return nil
 }
@@ -109,17 +109,17 @@ func (ac *AgentConfig) parseFlags() error {
 func (ac *AgentConfig) validate() error {
 	var errs []error
 	if ac.PollInterval <= 0 {
-		errs = append(errs, fmt.Errorf("poll interval must be positive, got: %s.", ac.PollInterval))
+		errs = append(errs, fmt.Errorf("poll interval must be positive, got: %s", ac.PollInterval))
 	}
 	if ac.ReportInterval <= 0 {
-		errs = append(errs, fmt.Errorf("report interval must be positive, got: %s.", ac.ReportInterval))
+		errs = append(errs, fmt.Errorf("report interval must be positive, got: %s", ac.ReportInterval))
 	}
 	if ac.ServerAddress == "" {
-		errs = append(errs, fmt.Errorf("server address must be set, got empty value."))
+		errs = append(errs, fmt.Errorf("server address must be set, got empty value"))
 	}
 	return errors.Join(errs...)
 }
 
 func (ac *AgentConfig) String() string {
-	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s.", ac.ServerAddress, ac.PollInterval, ac.ReportInterval)
+	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s", ac.ServerAddress, ac.PollInterval, ac.ReportInterval)
 }

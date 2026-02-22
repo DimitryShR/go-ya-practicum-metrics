@@ -41,7 +41,7 @@ func (sc *ServerConfig) parseFlags() error {
 	// Проверяем, что не переданы неизвестные флаги
 	if flag.NArg() > 0 {
 		flag.Usage()
-		return fmt.Errorf("unknown flags or arguments: %v.", flag.Args())
+		return fmt.Errorf("unknown flags or arguments: %v", flag.Args())
 	}
 	return nil
 
@@ -58,7 +58,7 @@ func (sc *ServerConfig) envParse() error {
 func (sc *ServerConfig) validate() error {
 	var errs []error
 	if sc.Address == "" {
-		errs = append(errs, fmt.Errorf("server address must be set, got empty value."))
+		errs = append(errs, fmt.Errorf("server address must be set, got empty value"))
 	}
 	return errors.Join(errs...)
 }
