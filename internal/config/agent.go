@@ -1,11 +1,14 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
+	"strings"
 	"time"
+
+	"github.com/caarlos0/env/v6"
 )
 
 type AgentConfig struct {
@@ -14,13 +17,27 @@ type AgentConfig struct {
 	ServerAddress  string
 }
 
+// Создаем новый экземпляр конфигурации агента, загружая значения конфигурации
+// Приоритет загрузки: переменные окружения > флаги > значения по умолчанию
 func NewAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{
 		ServerAddress:  "http://localhost:8080",
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
 	}
-	cfg.parseFlags()
+	if err := cfg.parseFlags(); err != nil {
+		fmt.Println("config flags parse error:", err)
+		os.Exit(1)
+	}
+	if err := cfg.envParse(); err != nil {
+		fmt.Println("config env parse error:", err)
+		os.Exit(1)
+	}
+	if err := cfg.validate(); err != nil {
+		fmt.Println("config validation error:", err)
+		os.Exit(1)
+	}
+	cfg.normalizeAddress()
 	return cfg
 }
 
@@ -32,7 +49,39 @@ func NewTestAgentConfig(serverAddress string) *AgentConfig {
 	}
 }
 
-func (ac *AgentConfig) parseFlags() {
+// Добавляем схему по умолчанию, если она не указана в адресе сервера
+func (ac *AgentConfig) normalizeAddress() {
+	if !strings.Contains(ac.ServerAddress, "://") {
+		ac.ServerAddress = "http://" + ac.ServerAddress
+	}
+}
+
+// Извлекаем конфигурацию из переменных окружения и вносим изменения в структуру конфигурации
+func (ac *AgentConfig) envParse() error {
+	tmpCfg := struct {
+		PollInterval   *float64 `env:"POLL_INTERVAL"`
+		ReportInterval *float64 `env:"REPORT_INTERVAL"`
+		ServerAddress  *string  `env:"ADDRESS"`
+	}{}
+	err := env.Parse(&tmpCfg)
+	if err != nil {
+		return err
+	}
+	// Проверяем, что переменные окружения не пустые и конвертируем в нужные типы
+	if tmpCfg.PollInterval != nil {
+		ac.PollInterval = time.Duration(*tmpCfg.PollInterval * float64(time.Second))
+	}
+	if tmpCfg.ReportInterval != nil {
+		ac.ReportInterval = time.Duration(*tmpCfg.ReportInterval * float64(time.Second))
+	}
+	if tmpCfg.ServerAddress != nil {
+		ac.ServerAddress = *tmpCfg.ServerAddress
+	}
+	return nil
+}
+
+// Парсим флаги командной строки и вносим изменения в структуру конфигурации
+func (ac *AgentConfig) parseFlags() error {
 	// Флаг для адреса сервера
 	flag.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
 
@@ -41,32 +90,36 @@ func (ac *AgentConfig) parseFlags() {
 	flag.Float64Var(&pollIntervalSec, "p", 2.0, "Poll interval in seconds")
 	flag.Float64Var(&reportIntervalSec, "r", 10.0, "Report interval in seconds")
 
+	// Парсим флаги
 	flag.Parse()
 
-	// Проверяем наличие схемы, если нет, то добавляем
-	if idx := regexp.MustCompile(`.*?:\/\/`).FindStringIndex(ac.ServerAddress); idx == nil {
-		ac.ServerAddress = "http://" + ac.ServerAddress
-	}
 	// Конвертируем в time.Duration
 	ac.PollInterval = time.Duration(pollIntervalSec * float64(time.Second))
 	ac.ReportInterval = time.Duration(reportIntervalSec * float64(time.Second))
 
 	// Проверяем, что не переданы неизвестные флаги
 	if flag.NArg() > 0 {
-		fmt.Printf("Error: unknown flags or arguments: %v\n", flag.Args())
 		flag.Usage()
-		os.Exit(1)
+		return fmt.Errorf("unknown flags or arguments: %v", flag.Args())
 	}
+	return nil
+}
 
-	// Валидация значений
+// Валидация конфигурации с накоплением ошибок
+func (ac *AgentConfig) validate() error {
+	var errs []error
 	if ac.PollInterval <= 0 {
-		fmt.Printf("Error: poll interval must be positive, got: %.1f seconds\n", pollIntervalSec)
-		os.Exit(1)
+		errs = append(errs, fmt.Errorf("poll interval must be positive, got: %s", ac.PollInterval))
 	}
-
 	if ac.ReportInterval <= 0 {
-		fmt.Printf("Error: report interval must be positive, got: %.1f seconds\n", reportIntervalSec)
-		os.Exit(1)
+		errs = append(errs, fmt.Errorf("report interval must be positive, got: %s", ac.ReportInterval))
 	}
+	if ac.ServerAddress == "" {
+		errs = append(errs, fmt.Errorf("server address must be set, got empty value"))
+	}
+	return errors.Join(errs...)
+}
 
+func (ac *AgentConfig) String() string {
+	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s", ac.ServerAddress, ac.PollInterval, ac.ReportInterval)
 }
