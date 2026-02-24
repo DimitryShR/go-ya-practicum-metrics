@@ -59,20 +59,10 @@ func (c *MetricsClient) SendMetric(metric models.Metrics) error {
 		return fmt.Errorf("failed to get metric URL: %w", err)
 	}
 
-	// req, err := http.NewRequest(http.MethodPost, url, nil)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create request: %w", err)
-	// }
-	// req.Header.Set("Content-Type", "text/plain")
-
-	// resp, err := c.httpClient.Do(req)
-	resp, err := c.client.R().
-		SetHeader("Content-Type", "text/plain").
-		Post(url)
+	resp, err := c.client.R().SetHeader("Content-Type", "text/plain").Post(url)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	// defer resp.Body.Close()
 
 	if resp.StatusCode() != http.StatusOK {
 		return fmt.Errorf("server returned status: %d", resp.StatusCode())

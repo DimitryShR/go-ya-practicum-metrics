@@ -1,5 +1,7 @@
 package models
 
+import "fmt"
+
 type MetricType string
 
 const (
@@ -18,4 +20,9 @@ type Metrics struct {
 	Delta *int64     `json:"delta,omitempty"`
 	Value *float64   `json:"value,omitempty"`
 	Hash  string     `json:"hash,omitempty"`
+}
+
+func (m Metrics) String() string {
+	return fmt.Sprintf("Metrics{ID: %s, MType: %s, Delta: %v, Value: %v, Hash: %s}",
+		m.ID, m.MType, m.Delta, m.Value, m.Hash)
 }

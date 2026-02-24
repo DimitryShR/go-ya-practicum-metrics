@@ -11,6 +11,7 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 )
 
@@ -36,9 +37,12 @@ func run() error {
 	metricHandler := handler.NewMetricHandler(metricService)
 
 	r := chi.NewRouter()
+	r.Use(chimw.StripSlashes)
 
+	r.Post("/update", metricHandler.UpdateMetricHandlerJson)
 	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)
 
+	r.Post("/value", metricHandler.GetMetricValueJson)
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
