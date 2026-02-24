@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetricHandler_UpdateMetricHandlerJson(t *testing.T) {
+func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 
 	// Создаем тестовые метрики
 	gaugeMetric := models.Metrics{
@@ -94,7 +94,7 @@ func TestMetricHandler_UpdateMetricHandlerJson(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			// Вызываем handler
-			metricHandler.UpdateMetricHandlerJson(rr, req)
+			metricHandler.UpdateMetricHandlerJSON(rr, req)
 
 			// Проверяем статус код
 			assert.Equal(t, tt.expectedStatus, rr.Code)
@@ -115,4 +115,4 @@ func TestMetricHandler_UpdateMetricHandlerJson(t *testing.T) {
 	}
 }
 
-// TODO: Добавить unit тесты для GetMetricValueJson
+// TODO: Добавить unit тесты для GetMetricValueJSON

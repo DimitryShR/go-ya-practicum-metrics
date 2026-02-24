@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// UpdateMetricHandlerJson - обработчик POST /update (JSON тело)
-func (mh *MetricHandler) UpdateMetricHandlerJson(w http.ResponseWriter, r *http.Request) {
+// UpdateMetricHandlerJSON - обработчик POST /update (JSON тело)
+func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed. Expected POST")
@@ -44,8 +44,8 @@ func (mh *MetricHandler) UpdateMetricHandlerJson(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, metric)
 }
 
-// GetMetricValueJson - обработчик POST /value/ (JSON Body)
-func (mh *MetricHandler) GetMetricValueJson(w http.ResponseWriter, r *http.Request) {
+// GetMetricValueJSON - обработчик POST /value/ (JSON Body)
+func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed. Expected POST")

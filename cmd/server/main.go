@@ -39,10 +39,10 @@ func run() error {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 
-	r.Post("/update", metricHandler.UpdateMetricHandlerJson)
+	r.Post("/update", metricHandler.UpdateMetricHandlerJSON)
 	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)
 
-	r.Post("/value", metricHandler.GetMetricValueJson)
+	r.Post("/value", metricHandler.GetMetricValueJSON)
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
