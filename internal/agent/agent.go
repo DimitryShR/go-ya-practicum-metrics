@@ -38,7 +38,7 @@ func (a *Agent) Run(ctx context.Context) {
 		case <-pollTicker.C:
 			a.collectMetrics()
 		case <-reportTicker.C:
-			a.reportAllMetricJson()
+			a.reportAllMetricJSON()
 		}
 	}
 }
@@ -54,10 +54,10 @@ func (a *Agent) collectMetrics() {
 	a.collector.Collect()
 }
 
-func (a *Agent) reportAllMetricJson() {
+func (a *Agent) reportAllMetricJSON() {
 	metrics := a.collector.GetMetricsForReport()
 
-	if err := a.client.SendAllMetricJson(metrics); err != nil {
+	if err := a.client.SendAllMetricJSON(metrics); err != nil {
 		log.Printf("Failed to send metrics: %v", err)
 		return
 	}

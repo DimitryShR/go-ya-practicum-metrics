@@ -10,7 +10,7 @@ import (
 )
 
 // метод отправки одной метрики
-func (c *MetricsClient) SendMetricJson(metric models.Metrics) error {
+func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 
 	var buf bytes.Buffer
 
@@ -37,9 +37,9 @@ func (c *MetricsClient) SendMetricJson(metric models.Metrics) error {
 }
 
 // метод для отправки всех метрик
-func (c *MetricsClient) SendAllMetricJson(metrics []models.Metrics) error {
+func (c *MetricsClient) SendAllMetricJSON(metrics []models.Metrics) error {
 	for _, metric := range metrics {
-		if err := c.SendMetricJson(metric); err != nil {
+		if err := c.SendMetricJSON(metric); err != nil {
 			return fmt.Errorf("failed to send metric %s: %w", metric.ID, err)
 		}
 	}

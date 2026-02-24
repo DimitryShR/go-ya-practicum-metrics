@@ -12,7 +12,7 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
-func TestMetricsClient_SendMetricJson(t *testing.T) {
+func TestMetricsClient_SendMetricJSON(t *testing.T) {
 	t.Run("Successful send", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
@@ -44,8 +44,8 @@ func TestMetricsClient_SendMetricJson(t *testing.T) {
 			Value: func() *float64 { v := 10.5; return &v }(),
 		}
 
-		if err := client.SendMetricJson(metric); err != nil {
-			t.Errorf("SendMetricJson() error = %v", err)
+		if err := client.SendMetricJSON(metric); err != nil {
+			t.Errorf("SendMetricJSON() error = %v", err)
 		}
 	})
 
@@ -67,7 +67,7 @@ func TestMetricsClient_SendMetricJson(t *testing.T) {
 			Value: func() *float64 { v := 10.5; return &v }(),
 		}
 
-		err := client.SendMetricJson(metric)
+		err := client.SendMetricJSON(metric)
 		if err == nil {
 			t.Error("Expected error but got none")
 		}
@@ -99,14 +99,14 @@ func TestMetricsClient_SendMetricJson(t *testing.T) {
 			Value: func() *float64 { v := 10.5; return &v }(),
 		}
 
-		err := client.SendMetricJson(metric)
+		err := client.SendMetricJSON(metric)
 		if err == nil {
 			t.Error("Expected network error but got none")
 		}
 	})
 }
 
-func TestMetricsClient_SendAllMetricJson(t *testing.T) {
+func TestMetricsClient_SendAllMetricJSON(t *testing.T) {
 	t.Run("Successful send multiple metrics", func(t *testing.T) {
 		requestCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +139,8 @@ func TestMetricsClient_SendAllMetricJson(t *testing.T) {
 			},
 		}
 
-		if err := client.SendAllMetricJson(metrics); err != nil {
-			t.Errorf("SendAllMetricJson() error = %v", err)
+		if err := client.SendAllMetricJSON(metrics); err != nil {
+			t.Errorf("SendAllMetricJSON() error = %v", err)
 		}
 
 		if requestCount != 3 {
@@ -184,7 +184,7 @@ func TestMetricsClient_SendAllMetricJson(t *testing.T) {
 			},
 		}
 
-		err := client.SendAllMetricJson(metrics)
+		err := client.SendAllMetricJSON(metrics)
 		if err == nil {
 			t.Error("Expected error but got none")
 		}
@@ -202,8 +202,8 @@ func TestMetricsClient_SendAllMetricJson(t *testing.T) {
 			t.Fatal("Failed to create MetricsClient")
 		}
 
-		if err := client.SendAllMetricJson([]models.Metrics{}); err != nil {
-			t.Errorf("SendAllMetricJson with empty slice should not error, got %v", err)
+		if err := client.SendAllMetricJSON([]models.Metrics{}); err != nil {
+			t.Errorf("SendAllMetricJSON with empty slice should not error, got %v", err)
 		}
 	})
 }
