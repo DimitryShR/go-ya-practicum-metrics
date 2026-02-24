@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/compress"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
@@ -18,11 +19,17 @@ func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 		return fmt.Errorf("failed to encode metric to JSON: %w", err)
 	}
 
+	compressedBody, err := compress.GzipData(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to compress request body: %w", err)
+	}
+
 	url := fmt.Sprintf("%s/update", c.config.ServerAddress)
 
 	resp, err := c.client.R().
+		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Content-Type", "application/json").
-		SetBody(buf.Bytes()).
+		SetBody(compressedBody).
 		Post(url)
 
 	if err != nil {

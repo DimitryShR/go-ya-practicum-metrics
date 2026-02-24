@@ -46,5 +46,5 @@ func run() error {
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
-	return http.ListenAndServe(cfg.Address, middleware.LogRequest(r))
+	return http.ListenAndServe(cfg.Address, middleware.LogRequest(middleware.GzipMiddleware(r)))
 }
