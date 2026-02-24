@@ -106,7 +106,7 @@ func TestMetricsClient_SendMetricJson(t *testing.T) {
 	})
 }
 
-func TestMetricsClient_SendMetricsJson(t *testing.T) {
+func TestMetricsClient_SendAllMetricJson(t *testing.T) {
 	t.Run("Successful send multiple metrics", func(t *testing.T) {
 		requestCount := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +139,8 @@ func TestMetricsClient_SendMetricsJson(t *testing.T) {
 			},
 		}
 
-		if err := client.SendMetricsJson(metrics); err != nil {
-			t.Errorf("SendMetricsJson() error = %v", err)
+		if err := client.SendAllMetricJson(metrics); err != nil {
+			t.Errorf("SendAllMetricJson() error = %v", err)
 		}
 
 		if requestCount != 3 {
@@ -184,7 +184,7 @@ func TestMetricsClient_SendMetricsJson(t *testing.T) {
 			},
 		}
 
-		err := client.SendMetricsJson(metrics)
+		err := client.SendAllMetricJson(metrics)
 		if err == nil {
 			t.Error("Expected error but got none")
 		}
@@ -202,8 +202,8 @@ func TestMetricsClient_SendMetricsJson(t *testing.T) {
 			t.Fatal("Failed to create MetricsClient")
 		}
 
-		if err := client.SendMetricsJson([]models.Metrics{}); err != nil {
-			t.Errorf("SendMetricsJson with empty slice should not error, got %v", err)
+		if err := client.SendAllMetricJson([]models.Metrics{}); err != nil {
+			t.Errorf("SendAllMetricJson with empty slice should not error, got %v", err)
 		}
 	})
 }
