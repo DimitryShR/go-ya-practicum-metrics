@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -21,8 +22,18 @@ func TestMetricsClient_SendMetricJSON(t *testing.T) {
 			if r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("Expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
 			}
+			if r.Header.Get("Content-Encoding") != "gzip" {
+				t.Errorf("Expected Content-Encoding: gzip, got %s", r.Header.Get("Content-Encoding"))
+			}
+
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				t.Fatalf("failed to create gzip reader: %v", err)
+			}
+			defer gr.Close()
+
 			var got models.Metrics
-			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			if err := json.NewDecoder(gr).Decode(&got); err != nil {
 				t.Fatalf("failed to decode body: %v", err)
 			}
 			if got.ID != "testMetric" || got.MType != models.Gauge || got.Value == nil || *got.Value != 10.5 {
