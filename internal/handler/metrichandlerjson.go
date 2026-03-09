@@ -21,10 +21,11 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 	// Десериализуем тело запроса в структуру модели
 	logger.Log.Debug("decoding request")
 	var metric models.Metrics
+
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&metric); err != nil {
 		logger.Log.Info("cannot decode request JSON body", zap.Error(err))
-		writeJSONError(w, http.StatusInternalServerError, "Cannot decode request JSON body")
+		writeJSONError(w, http.StatusBadRequest, "Invalid request JSON body")
 		return
 	}
 
@@ -63,9 +64,10 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 
 	var metric models.Metrics
 
-	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&metric); err != nil {
 		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-		writeJSONError(w, http.StatusInternalServerError, "Cannot decode request JSON body")
+		writeJSONError(w, http.StatusBadRequest, "Invalid request JSON body")
 		return
 	}
 	logger.Log.Debug("got request metric", zap.String("metric", metric.String()))
@@ -106,6 +108,6 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 		metric.Delta = &value
 		writeJSON(w, http.StatusOK, metric)
 	default:
-		writeJSONError(w, http.StatusBadRequest, "Unsupported metric type")
+		writeJSONError(w, http.StatusUnprocessableEntity, "Unsupported metric type")
 	}
 }
