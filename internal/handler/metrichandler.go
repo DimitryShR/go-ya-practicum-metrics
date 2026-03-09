@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
-	service "github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"go.uber.org/zap"
 )
 
 type MetricHandler struct {
@@ -21,6 +23,12 @@ func NewMetricHandler(service service.MetricService) *MetricHandler {
 
 // UpdateMetric - обработчик POST /update/<type>/<name>/<value>
 func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	metric, ok := r.Context().Value(middleware.Metric).(models.Metrics)
 	if !ok {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -80,7 +88,7 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 		fmt.Fprintf(w, "%v", value)
 
 	default:
-		http.Error(w, "Invalid metric type", http.StatusBadRequest)
+		http.Error(w, "Invalid metric type", http.StatusUnprocessableEntity)
 	}
 }
 
@@ -138,5 +146,3 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
 	}
 }
-
-// TODO: Добавить unit тесты для GetMetricValue и GetAllMetrics

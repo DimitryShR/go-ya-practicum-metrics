@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	config "github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 )
 
 type Agent struct {
@@ -23,34 +23,55 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context) {
-	// Каналы для тикеров
 	pollTicker := time.NewTicker(a.config.PollInterval)
+	defer pollTicker.Stop()
 	reportTicker := time.NewTicker(a.config.ReportInterval)
+	defer reportTicker.Stop()
 
-	log.Println("Agent started")
-	log.Printf("Poll interval: %v", a.config.PollInterval)
-	log.Printf("Report interval: %v", a.config.ReportInterval)
-	log.Printf("Server address: %s", a.config.ServerAddress)
+	a.logStartup()
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Agent stopped")
 			return
-
 		case <-pollTicker.C:
-			// Сбор метрик
-			a.collector.Collect()
-
+			a.collectMetrics()
 		case <-reportTicker.C:
-			// Отправка метрик
-			metrics := a.collector.GetMetricsForReport()
-
-			if err := a.client.SendMetrics(metrics); err != nil {
-				log.Printf("Failed to send metrics: %v", err)
-			} else {
-				log.Printf("Successfully sent %d metrics", len(metrics))
-			}
+			a.reportAllMetricJSON()
 		}
 	}
+}
+
+func (a *Agent) logStartup() {
+	log.Println("Agent started")
+	log.Printf("Poll interval: %v", a.config.PollInterval)
+	log.Printf("Report interval: %v", a.config.ReportInterval)
+	log.Printf("Server address: %s", a.config.ServerAddress)
+}
+
+func (a *Agent) collectMetrics() {
+	a.collector.Collect()
+}
+
+func (a *Agent) reportAllMetricJSON() {
+	metrics := a.collector.GetMetricsForReport()
+
+	if err := a.client.SendAllMetricJSON(metrics); err != nil {
+		log.Printf("Failed to send metrics: %v", err)
+		return
+	}
+
+	log.Printf("Successfully sent %d metrics", len(metrics))
+}
+
+func (a *Agent) reportMetrics() {
+	metrics := a.collector.GetMetricsForReport()
+
+	if err := a.client.SendMetrics(metrics); err != nil {
+		log.Printf("Failed to send metrics: %v", err)
+		return
+	}
+
+	log.Printf("Successfully sent %d metrics", len(metrics))
 }

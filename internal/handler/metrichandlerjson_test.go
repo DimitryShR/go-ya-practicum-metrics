@@ -1,50 +1,19 @@
 package handler_test
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	handler "github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
-	middleware "github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockMetricService - мок сервиса метрик
-type MockMetricService struct {
-	mock.Mock
-}
-
-func (m *MockMetricService) UpdateMetric(metric models.Metrics) error {
-	args := m.Called(metric)
-	return args.Error(0)
-}
-
-func (m *MockMetricService) GetGauge(name string) (float64, bool) {
-	args := m.Called(name)
-	return args.Get(0).(float64), args.Bool(0)
-}
-
-func (m *MockMetricService) GetCounter(name string) (int64, bool) {
-	args := m.Called(name)
-	return args.Get(0).(int64), args.Bool(0)
-}
-
-func (m *MockMetricService) GetAllGauges() map[string]float64 {
-	args := m.Called()
-	return args.Get(0).(map[string]float64)
-}
-
-func (m *MockMetricService) GetAllCounters() map[string]int64 {
-	args := m.Called()
-	return args.Get(0).(map[string]int64)
-}
-
-func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
+func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 
 	// Создаем тестовые метрики
 	gaugeMetric := models.Metrics{
@@ -62,6 +31,7 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		metric         models.Metrics
+		rawBody        string
 		mockSetup      func(*MockMetricService)
 		expectedStatus int
 		expectedError  string
@@ -86,17 +56,24 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			name:   "Service returns error",
 			metric: gaugeMetric,
 			mockSetup: func(m *MockMetricService) {
-				m.On("UpdateMetric", gaugeMetric).Return(errors.New("Some error"))
+				m.On("UpdateMetric", gaugeMetric).Return(errors.New("Cannot update metric"))
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedError:  "Some error",
+			expectedError:  "Cannot update metric",
 		},
 		{
-			name:           "Metric not found in context",
+			name:           "Metric not found",
 			metric:         models.Metrics{},
 			mockSetup:      func(m *MockMetricService) {},
-			expectedStatus: http.StatusInternalServerError,
-			expectedError:  "Internal server error",
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedError:  "Unsupported request type",
+		},
+		{
+			name:           "Invalid JSON body",
+			rawBody:        `{"id":"testGauge","type":"gauge"`,
+			mockSetup:      func(m *MockMetricService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Invalid request JSON body",
 		},
 	}
 
@@ -109,20 +86,27 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			// Создаем handler
 			metricHandler := handler.NewMetricHandler(mockService)
 
-			// Создаем тестовый HTTP запрос
-			req := httptest.NewRequest(http.MethodPost, "/update/", nil)
-
-			// Добавляем метрику в контекст, если это не тест на отсутствие метрики
-			if tt.name != "Metric not found in context" {
-				ctx := context.WithValue(req.Context(), middleware.Metric, tt.metric)
-				req = req.WithContext(ctx)
+			var reqBody *bytes.Buffer
+			if tt.rawBody != "" {
+				reqBody = bytes.NewBufferString(tt.rawBody)
+			} else {
+				reqBody = &bytes.Buffer{}
+				if err := json.NewEncoder(reqBody).Encode(tt.metric); err != nil {
+					t.Fatalf("Failed to encode metric to JSON: %v", err)
+				}
 			}
+
+			// Создаем тестовый HTTP запрос
+			req := httptest.NewRequest(http.MethodPost, "/update/", reqBody)
+
+			// Устанавливаем заголовок Content-Type для JSON
+			req.Header.Set("Content-Type", "application/json")
 
 			// Создаем ResponseRecorder для записи ответа
 			rr := httptest.NewRecorder()
 
 			// Вызываем handler
-			metricHandler.UpdateMetricHandler(rr, req)
+			metricHandler.UpdateMetricHandlerJSON(rr, req)
 
 			// Проверяем статус код
 			assert.Equal(t, tt.expectedStatus, rr.Code)
@@ -134,7 +118,7 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 
 			// Проверяем заголовки в случае успеха
 			if tt.expectedStatus == http.StatusOK {
-				assert.Equal(t, "text/plain", rr.Header().Get("Content-Type"))
+				assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 			}
 
 			// Проверяем, что все ожидаемые вызовы мока были выполнены
@@ -142,3 +126,5 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 		})
 	}
 }
+
+// TODO: Добавить unit тесты для GetMetricValueJSON

@@ -6,22 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	models "github.com/DimitryShR/go-ya-practicum-metrics/internal/model"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
 type MetricKey string
 
 const Metric MetricKey = "metric"
 
-// Адаптер Middleware для разбора пути /update/<type>/<name>/<value>
 func ParseUpdatePathHandler(next http.Handler) http.Handler {
-	return ParseUpdatePath(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-	})
-}
-
-// Middleware функция для разбора пути /update/<type>/<name>/<value>ы
-func ParseUpdatePath(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Middleware logic to parse the update path
 		if r.Method != http.MethodPost {
@@ -31,7 +23,7 @@ func ParseUpdatePath(next http.HandlerFunc) http.HandlerFunc {
 		// get the metric type, name and value from the URL
 		remainingPath := strings.Trim(r.URL.Path, "/")
 		parts := strings.Split(remainingPath, "/")
-		if parts[0] != "update" || len(parts) < 4 {
+		if len(parts) < 4 || parts[0] != "update" {
 			http.Error(w, "Invalid path format", http.StatusNotFound)
 			return
 		}
