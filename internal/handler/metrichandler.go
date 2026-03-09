@@ -88,7 +88,7 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 		fmt.Fprintf(w, "%v", value)
 
 	default:
-		http.Error(w, "Invalid metric type", http.StatusBadRequest)
+		http.Error(w, "Invalid metric type", http.StatusUnprocessableEntity)
 	}
 }
 

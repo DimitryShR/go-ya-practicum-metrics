@@ -26,12 +26,12 @@ func (m *MockMetricService) UpdateMetric(metric models.Metrics) error {
 
 func (m *MockMetricService) GetGauge(name string) (float64, bool) {
 	args := m.Called(name)
-	return args.Get(0).(float64), args.Bool(0)
+	return args.Get(0).(float64), args.Bool(1)
 }
 
 func (m *MockMetricService) GetCounter(name string) (int64, bool) {
 	args := m.Called(name)
-	return args.Get(0).(int64), args.Bool(0)
+	return args.Get(0).(int64), args.Bool(1)
 }
 
 func (m *MockMetricService) GetAllGauges() map[string]float64 {

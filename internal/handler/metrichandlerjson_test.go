@@ -31,6 +31,7 @@ func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 	tests := []struct {
 		name           string
 		metric         models.Metrics
+		rawBody        string
 		mockSetup      func(*MockMetricService)
 		expectedStatus int
 		expectedError  string
@@ -67,6 +68,13 @@ func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 			expectedError:  "Unsupported request type",
 		},
+		{
+			name:           "Invalid JSON body",
+			rawBody:        `{"id":"testGauge","type":"gauge"`,
+			mockSetup:      func(m *MockMetricService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Invalid request JSON body",
+		},
 	}
 
 	for _, tt := range tests {
@@ -78,14 +86,18 @@ func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 			// Создаем handler
 			metricHandler := handler.NewMetricHandler(mockService)
 
-			// Кодируем метрику в JSON
-			var reqBody bytes.Buffer
-			if err := json.NewEncoder(&reqBody).Encode(tt.metric); err != nil {
-				t.Fatalf("Failed to encode metric to JSON: %v", err)
+			var reqBody *bytes.Buffer
+			if tt.rawBody != "" {
+				reqBody = bytes.NewBufferString(tt.rawBody)
+			} else {
+				reqBody = &bytes.Buffer{}
+				if err := json.NewEncoder(reqBody).Encode(tt.metric); err != nil {
+					t.Fatalf("Failed to encode metric to JSON: %v", err)
+				}
 			}
 
 			// Создаем тестовый HTTP запрос
-			req := httptest.NewRequest(http.MethodPost, "/update/", &reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/update/", reqBody)
 
 			// Устанавливаем заголовок Content-Type для JSON
 			req.Header.Set("Content-Type", "application/json")

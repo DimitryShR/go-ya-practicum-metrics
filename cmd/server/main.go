@@ -68,8 +68,15 @@ func run() error {
 	metricService := service.NewMetricService(storage)
 	metricHandler := handler.NewMetricHandler(metricService)
 
+	router := newRouter(metricHandler)
+
+	return http.ListenAndServe(cfg.Address, router)
+}
+
+func newRouter(metricHandler *handler.MetricHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
+	r.Use(middleware.LogRequest, middleware.GzipMiddleware)
 
 	r.Post("/update", metricHandler.UpdateMetricHandlerJSON)
 	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)
@@ -78,5 +85,5 @@ func run() error {
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
 
-	return http.ListenAndServe(cfg.Address, middleware.LogRequest(middleware.GzipMiddleware(r)))
+	return r
 }
