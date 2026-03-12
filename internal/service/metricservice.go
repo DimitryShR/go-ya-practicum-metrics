@@ -1,8 +1,9 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 )
 
 // MetricService определяет бизнес-логику работы с метриками
@@ -15,17 +16,28 @@ type MetricService interface {
 }
 
 type metricService struct {
-	repo repository.Storage
+	repo storage
 }
 
-func NewMetricService(repo repository.Storage) MetricService {
+func NewMetricService(repo storage) MetricService {
 	return &metricService{repo: repo}
 }
 
 func (s *metricService) UpdateMetric(metric models.Metrics) error {
-	// Здесь можно добавить бизнес-логику
-	// Пока просто делегируем в репозиторий
-	return s.repo.UpdateMetric(metric)
+	switch metric.MType {
+	case models.Gauge:
+		if metric.Value == nil {
+			return fmt.Errorf("gauge metric must have value")
+		}
+		return s.repo.UpdateGauge(metric.ID, *metric.Value)
+	case models.Counter:
+		if metric.Delta == nil {
+			return fmt.Errorf("counter metric must have delta")
+		}
+		return s.repo.UpdateCounter(metric.ID, *metric.Delta)
+	default:
+		return fmt.Errorf("unknown metric type: %s", metric.MType)
+	}
 }
 
 func (s *metricService) GetGauge(name string) (float64, bool) {

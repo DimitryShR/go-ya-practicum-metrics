@@ -7,15 +7,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config/db"
 	"github.com/caarlos0/env/v6"
 )
 
 type ServerConfig struct {
-	Address         string        `env:"ADDRESS"`
-	LogLevel        string        `env:"LOG_LEVEL"`
-	StoreInterval   time.Duration `env:"STORE_INTERVAL"`
-	FileStoragePath string        `env:"FILE_STORAGE_PATH"`
-	Restore         bool          `env:"RESTORE"`
+	Address         string        // `env:"ADDRESS"`
+	LogLevel        string        // `env:"LOG_LEVEL"`
+	StoreInterval   time.Duration // `env:"STORE_INTERVAL"`
+	FileStoragePath string        // `env:"FILE_STORAGE_PATH"`
+	Restore         bool          // `env:"RESTORE"`
+	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -27,6 +29,7 @@ func NewServerConfig() *ServerConfig {
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "/tmp/metrics-db.json",
 		Restore:         true,
+		DBDsn:           db.PgConn{},
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -52,10 +55,22 @@ func (sc *ServerConfig) parseFlags() error {
 	var storeIntervalSec float64
 	flag.Float64Var(&storeIntervalSec, "i", sc.StoreInterval.Seconds(), "Store interval in seconds")
 
+	var dbDsnStr string
+	flag.StringVar(&dbDsnStr, "d", "", "DSN for conn to db")
+
 	flag.Parse()
 
 	// Конвертируем в time.Duration
 	sc.StoreInterval = time.Duration(storeIntervalSec * float64(time.Second))
+	if dbDsnStr != "" {
+		conn, err := db.NewPgConnDsn(dbDsnStr)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			sc.DBDsn = *conn
+		}
+	}
 
 	// Проверяем, что не переданы неизвестные флаги
 	if flag.NArg() > 0 {
@@ -73,6 +88,7 @@ func (sc *ServerConfig) envParse() error {
 		StoreInterval   *float64 `env:"STORE_INTERVAL"`
 		FileStoragePath *string  `env:"FILE_STORAGE_PATH"`
 		Restore         *bool    `env:"RESTORE"`
+		DBDsn           *string  `env:"DATABASE_DSN"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -94,6 +110,15 @@ func (sc *ServerConfig) envParse() error {
 	}
 	if tmpCfg.Restore != nil {
 		sc.Restore = *tmpCfg.Restore
+	}
+	if tmpCfg.DBDsn != nil {
+		conn, err := db.NewPgConnDsn(*tmpCfg.DBDsn)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			sc.DBDsn = *conn
+		}
 	}
 
 	return nil
