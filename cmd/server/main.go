@@ -38,7 +38,7 @@ func run() error {
 
 	// Инициализируем подключение к БД
 	var db *sql.DB
-	if dsn := cfg.DbDsn.GetDsn(); dsn != "" {
+	if dsn := cfg.DBDsn.GetDsn(); dsn != "" {
 		var err error
 		db, err = sql.Open("pgx", dsn)
 		if err != nil {

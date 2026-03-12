@@ -17,7 +17,7 @@ type ServerConfig struct {
 	StoreInterval   time.Duration // `env:"STORE_INTERVAL"`
 	FileStoragePath string        // `env:"FILE_STORAGE_PATH"`
 	Restore         bool          // `env:"RESTORE"`
-	DbDsn           db.PgConn     // `env:"DATABASE_DSN"`
+	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -29,7 +29,7 @@ func NewServerConfig() *ServerConfig {
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "/tmp/metrics-db.json",
 		Restore:         true,
-		DbDsn:           db.PgConn{},
+		DBDsn:           db.PgConn{},
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -68,7 +68,7 @@ func (sc *ServerConfig) parseFlags() error {
 			return err
 		}
 		if conn != nil {
-			sc.DbDsn = *conn
+			sc.DBDsn = *conn
 		}
 	}
 
@@ -88,7 +88,7 @@ func (sc *ServerConfig) envParse() error {
 		StoreInterval   *float64 `env:"STORE_INTERVAL"`
 		FileStoragePath *string  `env:"FILE_STORAGE_PATH"`
 		Restore         *bool    `env:"RESTORE"`
-		DbDsn           *string  `env:"DATABASE_DSN"`
+		DBDsn           *string  `env:"DATABASE_DSN"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -111,13 +111,13 @@ func (sc *ServerConfig) envParse() error {
 	if tmpCfg.Restore != nil {
 		sc.Restore = *tmpCfg.Restore
 	}
-	if tmpCfg.DbDsn != nil {
-		conn, err := db.NewPgConnDsn(*tmpCfg.DbDsn)
+	if tmpCfg.DBDsn != nil {
+		conn, err := db.NewPgConnDsn(*tmpCfg.DBDsn)
 		if err != nil {
 			return err
 		}
 		if conn != nil {
-			sc.DbDsn = *conn
+			sc.DBDsn = *conn
 		}
 	}
 

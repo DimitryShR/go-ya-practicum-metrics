@@ -14,7 +14,7 @@ type PgConn struct {
 	Port     int
 	User     string
 	Password string
-	DbName   string
+	DBName   string
 	SslMode  string
 }
 
@@ -29,7 +29,7 @@ func NewPgConn(host, port, user, password, dbName string, sslmode *string) (*PgC
 		sslmode = &defaultSslMode
 	}
 
-	return &PgConn{Host: host, Port: intPort, User: user, Password: password, DbName: dbName, SslMode: *sslmode}, nil
+	return &PgConn{Host: host, Port: intPort, User: user, Password: password, DBName: dbName, SslMode: *sslmode}, nil
 }
 
 func NewPgConnDsn(dsn string) (*PgConn, error) {
@@ -68,7 +68,7 @@ func NewPgConnDsn(dsn string) (*PgConn, error) {
 		sslmode = defaultSSLMode
 	}
 
-	return &PgConn{Host: host, Port: port, User: user, Password: password, DbName: dbname, SslMode: sslmode}, nil
+	return &PgConn{Host: host, Port: port, User: user, Password: password, DBName: dbname, SslMode: sslmode}, nil
 }
 
 func parsePort(port string) (int, error) {
@@ -90,5 +90,5 @@ func (p PgConn) GetDsn() string {
 		p.SslMode = defaultSSLMode
 	}
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		p.Host, p.Port, p.User, p.Password, p.DbName, p.SslMode)
+		p.Host, p.Port, p.User, p.Password, p.DBName, p.SslMode)
 }
