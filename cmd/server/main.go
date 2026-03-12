@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"database/sql"
+
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
@@ -13,6 +15,7 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -32,6 +35,18 @@ func run() error {
 	defer logger.Log.Sync()
 
 	logger.Log.Info("Running server", zap.String("address", cfg.Address))
+
+	// Инициализируем подключение к БД
+	var db *sql.DB
+	if dsn := cfg.DbDsn.GetDsn(); dsn != "" {
+		var err error
+		db, err = sql.Open("pgx", dsn)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+	}
+	pingHandler := handler.NewPingHandler(db)
 
 	storage := repository.NewMemStorage()
 	if cfg.Restore {
@@ -68,12 +83,12 @@ func run() error {
 	metricService := service.NewMetricService(storage)
 	metricHandler := handler.NewMetricHandler(metricService)
 
-	router := newRouter(metricHandler)
+	router := newRouter(metricHandler, pingHandler)
 
 	return http.ListenAndServe(cfg.Address, router)
 }
 
-func newRouter(metricHandler *handler.MetricHandler) http.Handler {
+func newRouter(metricHandler *handler.MetricHandler, pingHandler *handler.PingHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(middleware.LogRequest, middleware.GzipMiddleware)
@@ -84,6 +99,7 @@ func newRouter(metricHandler *handler.MetricHandler) http.Handler {
 	r.Post("/value", metricHandler.GetMetricValueJSON)
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)
+	r.Get("/ping", pingHandler.Ping)
 
 	return r
 }
