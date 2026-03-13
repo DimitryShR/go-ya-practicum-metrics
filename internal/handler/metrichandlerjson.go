@@ -37,7 +37,7 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 	}
 
 	// Обновляем метрику через сервис
-	if err := mh.service.UpdateMetric(metric); err != nil {
+	if err := mh.service.UpdateMetric(r.Context(), metric); err != nil {
 		logger.Log.Info("cannot update metric", zap.Error(err))
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metric")
 		return
@@ -89,8 +89,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 	switch metric.MType {
 	case models.Gauge:
 		// Получаем значение Gauge метрики из сервиса
-		value, ok := mh.service.GetGauge(metric.ID)
-		if !ok {
+		value, err := mh.service.GetGauge(r.Context(), metric.ID)
+		if err != nil {
 			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
@@ -99,8 +99,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusOK, metric)
 	case models.Counter:
 		// Получаем значение Counter метрики из сервиса
-		value, ok := mh.service.GetCounter(metric.ID)
-		if !ok {
+		value, err := mh.service.GetCounter(r.Context(), metric.ID)
+		if err != nil {
 			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
