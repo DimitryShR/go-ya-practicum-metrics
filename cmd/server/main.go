@@ -116,14 +116,14 @@ func getMode(cfg *config.ServerConfig) storageMode {
 
 func initPostgresStorage(cfg *config.ServerConfig, db **sql.DB) (service.Storage, error) {
 	migrateURL := cfg.DBMigrateDsn.GetURL()
-	if migrateURL != "" {
-		if err := runMigrations(migrateURL); err != nil {
-			return nil, fmt.Errorf("run migrations: %w", err)
-		}
-		logger.Log.Info("Database migrations completed successfully")
-	} else {
-		logger.Log.Info("No migration DSN provided, skipping database migrations")
+	if migrateURL == "" {
+		logger.Log.Info("DB migrate DSN not provided, try using main DB DSN for migrations")
+		migrateURL = cfg.DBDsn.GetURL()
 	}
+	if err := runMigrations(migrateURL); err != nil {
+		return nil, fmt.Errorf("run migrations: %w", err)
+	}
+	logger.Log.Info("Database migrations completed successfully")
 
 	dbDSN := cfg.DBDsn.GetKeywordDSN()
 	newDB, err := sql.Open("pgx", dbDSN)
