@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -72,12 +70,7 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 	case models.Gauge:
 		value, err := mh.service.GetGauge(r.Context(), metricName)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				http.Error(w, "Metric not found", http.StatusNotFound)
-				return
-			}
-			logger.Log.Error("get gauge failed", zap.Error(err), zap.String("name", metricName))
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 
@@ -88,12 +81,7 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 	case models.Counter:
 		value, err := mh.service.GetCounter(r.Context(), metricName)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				http.Error(w, "Metric not found", http.StatusNotFound)
-				return
-			}
-			logger.Log.Error("get counter failed", zap.Error(err), zap.String("name", metricName))
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			http.Error(w, "Metric not found", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")

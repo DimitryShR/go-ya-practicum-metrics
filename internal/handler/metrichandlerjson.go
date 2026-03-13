@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -93,12 +91,7 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 		// Получаем значение Gauge метрики из сервиса
 		value, err := mh.service.GetGauge(r.Context(), metric.ID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				writeJSONError(w, http.StatusNotFound, "Metric not found")
-				return
-			}
-			logger.Log.Error("get gauge failed", zap.Error(err), zap.String("name", metric.ID))
-			writeJSONError(w, http.StatusInternalServerError, "Internal server error")
+			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
 		// Устанавливаем полученное значение в структуру метрики и отправляем JSON ответ
@@ -108,12 +101,7 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 		// Получаем значение Counter метрики из сервиса
 		value, err := mh.service.GetCounter(r.Context(), metric.ID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				writeJSONError(w, http.StatusNotFound, "Metric not found")
-				return
-			}
-			logger.Log.Error("get counter failed", zap.Error(err), zap.String("name", metric.ID))
-			writeJSONError(w, http.StatusInternalServerError, "Internal server error")
+			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
 		// Устанавливаем полученное значение в структуру метрики и отправляем JSON ответ

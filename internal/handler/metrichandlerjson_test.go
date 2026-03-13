@@ -150,18 +150,6 @@ func TestMetricHandler_GetMetricValueJSON_Errors(t *testing.T) {
 			expectedBody:   "Metric not found",
 		},
 		{
-			name: "Gauge internal error",
-			metric: models.Metrics{
-				ID:    "testMetric",
-				MType: "gauge",
-			},
-			mockSetup: func(m *MockMetricService) {
-				m.On("GetGauge", mock.Anything, "testMetric").Return(0.0, errors.New("db error"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "Internal server error",
-		},
-		{
 			name: "Counter not found",
 			metric: models.Metrics{
 				ID:    "testMetric",
@@ -172,18 +160,6 @@ func TestMetricHandler_GetMetricValueJSON_Errors(t *testing.T) {
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedBody:   "Metric not found",
-		},
-		{
-			name: "Counter internal error",
-			metric: models.Metrics{
-				ID:    "testMetric",
-				MType: "counter",
-			},
-			mockSetup: func(m *MockMetricService) {
-				m.On("GetCounter", mock.Anything, "testMetric").Return(int64(0), errors.New("db error"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "Internal server error",
 		},
 	}
 
