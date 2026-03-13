@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,9 +29,15 @@ func (ms *MemStorage) SaveToFile(path string) error {
 	if path == "" {
 		return errors.New("file path is empty")
 	}
-
-	gauges := ms.GetAllGauges()
-	counters := ms.GetAllCounters()
+	ctx := context.Background()
+	gauges, err := ms.GetAllGauges(ctx)
+	if err != nil {
+		return fmt.Errorf("get all gauges: %w", err)
+	}
+	counters, err := ms.GetAllCounters(ctx)
+	if err != nil {
+		return fmt.Errorf("get all counters: %w", err)
+	}
 
 	metrics := make([]models.Metrics, 0, len(gauges)+len(counters))
 	for name, value := range gauges {
@@ -121,9 +128,11 @@ func (ms *MemStorage) LoadFromFile(path string) (bool, error) {
 		}()
 	}
 
+	ctx := context.Background()
+
 	var errs []error
 	for _, m := range metrics {
-		err := ms.loadMetric(m)
+		err := ms.loadMetric(ctx, m)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -135,20 +144,20 @@ func (ms *MemStorage) LoadFromFile(path string) (bool, error) {
 	return true, nil
 }
 
-func (ms *MemStorage) loadMetric(metric models.Metrics) error {
+func (ms *MemStorage) loadMetric(ctx context.Context, metric models.Metrics) error {
 	switch metric.MType {
 	case models.Gauge:
 		if metric.Value == nil {
 			return fmt.Errorf("gauge metric must have a value")
 		}
-		if err := ms.UpdateGauge(metric.ID, *metric.Value); err != nil {
+		if err := ms.UpdateGauge(ctx, metric.ID, *metric.Value); err != nil {
 			return err
 		}
 	case models.Counter:
 		if metric.Delta == nil {
 			return fmt.Errorf("counter metric must have a value")
 		}
-		if err := ms.UpdateCounter(metric.ID, *metric.Delta); err != nil {
+		if err := ms.UpdateCounter(ctx, metric.ID, *metric.Delta); err != nil {
 			return err
 		}
 	default:

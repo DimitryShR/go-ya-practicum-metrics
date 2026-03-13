@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"fmt"
 	"sync"
 )
 
@@ -18,50 +20,74 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
-func (ms *MemStorage) UpdateCounter(name string, value int64) error {
+func (ms *MemStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	ms.mu.Lock()
 	ms.counters[name] += value
 	ms.mu.Unlock()
 	return ms.saveIfEnabled()
 }
 
-func (ms *MemStorage) UpdateGauge(name string, value float64) error {
+func (ms *MemStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	ms.mu.Lock()
 	ms.gauges[name] = value
 	ms.mu.Unlock()
 	return ms.saveIfEnabled()
 }
 
-func (ms *MemStorage) GetCounter(name string) (int64, bool) {
+func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	value, ok := ms.counters[name]
-	return value, ok
+	if !ok {
+		return 0, fmt.Errorf("counter metric not found: %s", name)
+	}
+	return value, nil
 }
 
-func (ms *MemStorage) GetGauge(name string) (float64, bool) {
+func (ms *MemStorage) GetGauge(ctx context.Context, name string) (float64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	value, ok := ms.gauges[name]
-	return value, ok
+	if !ok {
+		return 0, fmt.Errorf("gauge metric not found: %s", name)
+	}
+	return value, nil
 }
 
-func (ms *MemStorage) GetAllGauges() map[string]float64 {
+func (ms *MemStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	copied := make(map[string]float64, len(ms.gauges))
 	for k, v := range ms.gauges {
 		copied[k] = v
 	}
-	return copied
+	return copied, nil
 }
 
-func (ms *MemStorage) GetAllCounters() map[string]int64 {
+func (ms *MemStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	copied := make(map[string]int64, len(ms.counters))
 	for k, v := range ms.counters {
 		copied[k] = v
 	}
-	return copied
+	return copied, nil
 }

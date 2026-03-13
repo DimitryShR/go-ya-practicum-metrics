@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -19,29 +20,29 @@ type MockMetricService struct {
 	mock.Mock
 }
 
-func (m *MockMetricService) UpdateMetric(metric models.Metrics) error {
-	args := m.Called(metric)
+func (m *MockMetricService) UpdateMetric(ctx context.Context, metric models.Metrics) error {
+	args := m.Called(ctx, metric)
 	return args.Error(0)
 }
 
-func (m *MockMetricService) GetGauge(name string) (float64, bool) {
-	args := m.Called(name)
-	return args.Get(0).(float64), args.Bool(1)
+func (m *MockMetricService) GetGauge(ctx context.Context, name string) (float64, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(float64), args.Error(1)
 }
 
-func (m *MockMetricService) GetCounter(name string) (int64, bool) {
-	args := m.Called(name)
-	return args.Get(0).(int64), args.Bool(1)
+func (m *MockMetricService) GetCounter(ctx context.Context, name string) (int64, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockMetricService) GetAllGauges() map[string]float64 {
-	args := m.Called()
-	return args.Get(0).(map[string]float64)
+func (m *MockMetricService) GetAllGauges(ctx context.Context) (map[string]float64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(map[string]float64), args.Error(1)
 }
 
-func (m *MockMetricService) GetAllCounters() map[string]int64 {
-	args := m.Called()
-	return args.Get(0).(map[string]int64)
+func (m *MockMetricService) GetAllCounters(ctx context.Context) (map[string]int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(map[string]int64), args.Error(1)
 }
 
 func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
@@ -70,7 +71,7 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			name:   "Success update gauge metric",
 			metric: gaugeMetric,
 			mockSetup: func(m *MockMetricService) {
-				m.On("UpdateMetric", gaugeMetric).Return(nil)
+				m.On("UpdateMetric", mock.Anything, gaugeMetric).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -78,7 +79,7 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			name:   "Success update counter metric",
 			metric: counterMetric,
 			mockSetup: func(m *MockMetricService) {
-				m.On("UpdateMetric", counterMetric).Return(nil)
+				m.On("UpdateMetric", mock.Anything, counterMetric).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -86,7 +87,7 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			name:   "Service returns error",
 			metric: gaugeMetric,
 			mockSetup: func(m *MockMetricService) {
-				m.On("UpdateMetric", gaugeMetric).Return(errors.New("Some error"))
+				m.On("UpdateMetric", mock.Anything, gaugeMetric).Return(errors.New("Some error"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Some error",
@@ -143,4 +144,67 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 	}
 }
 
-// TODO: Добавить unit тесты для GetMetricValue и GetAllMetrics
+func TestMetricHandler_GetMetricValue_Errors(t *testing.T) {
+	tests := []struct {
+		name           string
+		metricType     string
+		mockSetup      func(*MockMetricService)
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:       "Gauge not found",
+			metricType: "gauge",
+			mockSetup: func(m *MockMetricService) {
+				m.On("GetGauge", mock.Anything, "testMetric").Return(0.0, sql.ErrNoRows)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "Metric not found",
+		},
+		{
+			name:       "Gauge internal error",
+			metricType: "gauge",
+			mockSetup: func(m *MockMetricService) {
+				m.On("GetGauge", mock.Anything, "testMetric").Return(0.0, errors.New("db error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Internal server error",
+		},
+		{
+			name:       "Counter not found",
+			metricType: "counter",
+			mockSetup: func(m *MockMetricService) {
+				m.On("GetCounter", mock.Anything, "testMetric").Return(int64(0), sql.ErrNoRows)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "Metric not found",
+		},
+		{
+			name:       "Counter internal error",
+			metricType: "counter",
+			mockSetup: func(m *MockMetricService) {
+				m.On("GetCounter", mock.Anything, "testMetric").Return(int64(0), errors.New("db error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Internal server error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockMetricService)
+			tt.mockSetup(mockService)
+
+			metricHandler := handler.NewMetricHandler(mockService)
+
+			req := httptest.NewRequest(http.MethodGet, "/value/"+tt.metricType+"/testMetric", nil)
+			rr := httptest.NewRecorder()
+
+			metricHandler.GetMetricValue(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			mockService.AssertExpectations(t)
+		})
+	}
+}

@@ -10,6 +10,7 @@ import (
 const defaultSSLMode = "disable"
 
 type PgConn struct {
+	Scheme   string
 	Host     string
 	Port     int
 	User     string
@@ -41,9 +42,12 @@ func NewPgConnDsn(dsn string) (*PgConn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse DSN: %w", err)
 	}
+
 	if u.Scheme == "" {
 		return nil, fmt.Errorf("dsn must be URL format, got empty scheme")
 	}
+
+	scheme := u.Scheme
 
 	var user, password string
 	if u.User != nil {
@@ -68,7 +72,7 @@ func NewPgConnDsn(dsn string) (*PgConn, error) {
 		sslmode = defaultSSLMode
 	}
 
-	return &PgConn{Host: host, Port: port, User: user, Password: password, DBName: dbname, SslMode: sslmode}, nil
+	return &PgConn{Scheme: scheme, Host: host, Port: port, User: user, Password: password, DBName: dbname, SslMode: sslmode}, nil
 }
 
 func parsePort(port string) (int, error) {
@@ -82,7 +86,7 @@ func parsePort(port string) (int, error) {
 	return p, nil
 }
 
-func (p PgConn) GetDsn() string {
+func (p PgConn) GetKeywordDSN() string {
 	if p.Host == "" {
 		return ""
 	}
@@ -91,4 +95,30 @@ func (p PgConn) GetDsn() string {
 	}
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		p.Host, p.Port, p.User, p.Password, p.DBName, p.SslMode)
+}
+
+func (p PgConn) GetURL() string {
+	if p.Host == "" {
+		return ""
+	}
+
+	u := &url.URL{
+		Scheme: p.Scheme,
+		Host:   fmt.Sprintf("%s:%d", p.Host, p.Port),
+		Path:   p.DBName,
+	}
+	if p.User != "" {
+		if p.Password != "" {
+			u.User = url.UserPassword(p.User, p.Password)
+		} else {
+			u.User = url.User(p.User)
+		}
+	}
+	q := u.Query()
+	if p.SslMode == "" {
+		p.SslMode = defaultSSLMode
+	}
+	q.Set("sslmode", p.SslMode)
+	u.RawQuery = q.Encode()
+	return u.String()
 }

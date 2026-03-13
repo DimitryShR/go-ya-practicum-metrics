@@ -18,6 +18,7 @@ type ServerConfig struct {
 	FileStoragePath string        // `env:"FILE_STORAGE_PATH"`
 	Restore         bool          // `env:"RESTORE"`
 	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
+	DBMigrateDsn    db.PgConn     // `env:"DATABASE_MIGRATE_DSN"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -27,9 +28,10 @@ func NewServerConfig() *ServerConfig {
 		Address:         ":8080",
 		LogLevel:        "info",
 		StoreInterval:   300 * time.Second,
-		FileStoragePath: "/tmp/metrics-db.json",
+		FileStoragePath: "",
 		Restore:         true,
 		DBDsn:           db.PgConn{},
+		DBMigrateDsn:    db.PgConn{},
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -55,8 +57,13 @@ func (sc *ServerConfig) parseFlags() error {
 	var storeIntervalSec float64
 	flag.Float64Var(&storeIntervalSec, "i", sc.StoreInterval.Seconds(), "Store interval in seconds")
 
+	// Подключение к БД через флаг -d для основного подключения
 	var dbDsnStr string
 	flag.StringVar(&dbDsnStr, "d", "", "DSN for conn to db")
+
+	// Подключение к БД для миграции через флаг -m
+	var dbMigrateDsnStr string
+	flag.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
 
 	flag.Parse()
 
@@ -69,6 +76,15 @@ func (sc *ServerConfig) parseFlags() error {
 		}
 		if conn != nil {
 			sc.DBDsn = *conn
+		}
+	}
+	if dbMigrateDsnStr != "" {
+		conn, err := db.NewPgConnDsn(dbMigrateDsnStr)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			sc.DBMigrateDsn = *conn
 		}
 	}
 
@@ -89,6 +105,7 @@ func (sc *ServerConfig) envParse() error {
 		FileStoragePath *string  `env:"FILE_STORAGE_PATH"`
 		Restore         *bool    `env:"RESTORE"`
 		DBDsn           *string  `env:"DATABASE_DSN"`
+		DBMigrateDsn    *string  `env:"DATABASE_MIGRATE_DSN"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -120,6 +137,15 @@ func (sc *ServerConfig) envParse() error {
 			sc.DBDsn = *conn
 		}
 	}
+	if tmpCfg.DBMigrateDsn != nil {
+		conn, err := db.NewPgConnDsn(*tmpCfg.DBMigrateDsn)
+		if err != nil {
+			return err
+		}
+		if conn != nil {
+			sc.DBMigrateDsn = *conn
+		}
+	}
 
 	return nil
 }
@@ -135,8 +161,8 @@ func (sc *ServerConfig) validate() error {
 	if sc.StoreInterval < 0 {
 		errs = append(errs, fmt.Errorf("store interval must be non-negative, got: %s", sc.StoreInterval))
 	}
-	if sc.FileStoragePath == "" {
-		errs = append(errs, fmt.Errorf("file storage path must be set, got empty value"))
-	}
+	// if sc.FileStoragePath == "" {
+	// 	errs = append(errs, fmt.Errorf("file storage path must be set, got empty value"))
+	// }
 	return errors.Join(errs...)
 }

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -35,7 +37,7 @@ func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := mh.service.UpdateMetric(metric); err != nil {
+	if err := mh.service.UpdateMetric(r.Context(), metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -68,19 +70,30 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 
 	switch models.MetricType(metricType) {
 	case models.Gauge:
-		value, ok := mh.service.GetGauge(metricName)
-		if !ok {
-			http.Error(w, "Metric not found", http.StatusNotFound)
+		value, err := mh.service.GetGauge(r.Context(), metricName)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Metric not found", http.StatusNotFound)
+				return
+			}
+			logger.Log.Error("get gauge failed", zap.Error(err), zap.String("name", metricName))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "%v", value)
 
 	case models.Counter:
-		value, ok := mh.service.GetCounter(metricName)
-		if !ok {
-			http.Error(w, "Metric not found", http.StatusNotFound)
+		value, err := mh.service.GetCounter(r.Context(), metricName)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Metric not found", http.StatusNotFound)
+				return
+			}
+			logger.Log.Error("get counter failed", zap.Error(err), zap.String("name", metricName))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
@@ -99,7 +112,18 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gauges, counters := mh.service.GetAllGauges(), mh.service.GetAllCounters()
+	gauges, err := mh.service.GetAllGauges(r.Context())
+	if err != nil {
+		logger.Log.Error("get all gauges failed", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	counters, err := mh.service.GetAllCounters(r.Context())
+	if err != nil {
+		logger.Log.Error("get all counters failed", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	// HTML шаблон
 	tmpl := `
