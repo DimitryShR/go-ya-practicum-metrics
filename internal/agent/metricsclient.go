@@ -18,9 +18,6 @@ type MetricsClient struct {
 func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 	restyClient := resty.New()
 	restyClient.SetTimeout(5 * time.Second)
-	restyClient.SetRetryCount(3)
-	restyClient.SetRetryWaitTime(100 * time.Millisecond)
-	restyClient.SetRetryMaxWaitTime(2 * time.Second)
 	return &MetricsClient{
 		config: cfg,
 		client: restyClient,
@@ -59,16 +56,18 @@ func (c *MetricsClient) SendMetric(metric models.Metrics) error {
 		return fmt.Errorf("failed to get metric URL: %w", err)
 	}
 
-	resp, err := c.client.R().SetHeader("Content-Type", "text/plain").Post(url)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
+	return c.withRetry(func() error {
+		resp, err := c.client.R().SetHeader("Content-Type", "text/plain").Post(url)
+		if err != nil {
+			return fmt.Errorf("failed to send request: %w", err)
+		}
 
-	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("server returned status: %d", resp.StatusCode())
-	}
+		if resp.StatusCode() != http.StatusOK {
+			return fmt.Errorf("server returned status: %d", resp.StatusCode())
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // метод для отправки всех метрик
@@ -85,15 +84,20 @@ func (c *MetricsClient) SendMetrics(metrics []models.Metrics) error {
 func (c *MetricsClient) GetMetric(metricType models.MetricType, metricName string) (string, error) {
 	url := fmt.Sprintf("%s/value/%s/%s", c.config.ServerAddress, metricType, metricName)
 
-	resp, err := c.client.R().Get(url)
-
+	var body string
+	err := c.withRetry(func() error {
+		resp, err := c.client.R().Get(url)
+		if err != nil {
+			return fmt.Errorf("failed to get metric: %w", err)
+		}
+		if resp.StatusCode() != http.StatusOK {
+			return fmt.Errorf("server returned status: %d", resp.StatusCode())
+		}
+		body = string(resp.Body())
+		return nil
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to get metric: %w", err)
+		return "", err
 	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("server returned status: %d", resp.StatusCode())
-	}
-
-	return string(resp.Body()), nil
+	return body, nil
 }

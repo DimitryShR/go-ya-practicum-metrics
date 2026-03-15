@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/retry"
 )
 
 //go:embed sql/*.sql
@@ -35,47 +37,51 @@ func NewPgStorage(db *sql.DB) *PgStorage {
 }
 
 func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
-	stmt, err := ps.db.PrepareContext(ctx, updateCounterSQL)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	return ps.withRetry(ctx, func() error {
+		stmt, err := ps.db.PrepareContext(ctx, updateCounterSQL)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
 
-	res, err := stmt.ExecContext(ctx, name, value)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
+		res, err := stmt.ExecContext(ctx, name, value)
+		if err != nil {
+			return err
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
 
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+		if rowsAffected == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
-	stmt, err := ps.db.PrepareContext(ctx, updateGaugeSQL)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
+	return ps.withRetry(ctx, func() error {
+		stmt, err := ps.db.PrepareContext(ctx, updateGaugeSQL)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
 
-	res, err := stmt.ExecContext(ctx, name, value)
-	if err != nil {
-		return err
-	}
+		res, err := stmt.ExecContext(ctx, name, value)
+		if err != nil {
+			return err
+		}
 
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowsAffected == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 func (ps *PgStorage) updateCounters(ctx context.Context, tx *sql.Tx, counters map[string]int64) error {
@@ -111,42 +117,45 @@ func (ps *PgStorage) updateGauges(ctx context.Context, tx *sql.Tx, gauges map[st
 }
 
 func (ps *PgStorage) UpdateMetrics(ctx context.Context, counters map[string]int64, gauges map[string]float64) error {
-	tx, err := ps.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if len(counters) > 0 {
-		err := ps.updateCounters(ctx, tx, counters)
+	return ps.withRetry(ctx, func() error {
+		tx, err := ps.db.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
-	}
+		defer tx.Rollback()
 
-	if len(gauges) > 0 {
-		err := ps.updateGauges(ctx, tx, gauges)
-		if err != nil {
-			return err
+		if len(counters) > 0 {
+			if err := ps.updateCounters(ctx, tx, counters); err != nil {
+				return err
+			}
 		}
-	}
 
-	return tx.Commit()
+		if len(gauges) > 0 {
+			if err := ps.updateGauges(ctx, tx, gauges); err != nil {
+				return err
+			}
+		}
+
+		return tx.Commit()
+	})
 }
 
 func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	var value int64
-	err := ps.db.QueryRowContext(ctx, getCounterSQL, name).Scan(&value)
+	err := ps.withRetry(ctx, func() error {
+		return ps.db.QueryRowContext(ctx, getCounterSQL, name).Scan(&value)
+	})
 	if err != nil {
 		return 0, err
 	}
 	return value, nil
-
 }
 
 func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	var value float64
-	err := ps.db.QueryRowContext(ctx, getGaugeSQL, name).Scan(&value)
+	err := ps.withRetry(ctx, func() error {
+		return ps.db.QueryRowContext(ctx, getGaugeSQL, name).Scan(&value)
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -154,22 +163,29 @@ func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error)
 }
 
 func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
-	rows, err := ps.db.QueryContext(ctx, getAllGaugesSQL)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	gauges := make(map[string]float64)
-	for rows.Next() {
-		var name string
-		var value float64
-		if err := rows.Scan(&name, &value); err != nil {
-			return nil, err
+	var gauges map[string]float64
+	err := ps.withRetry(ctx, func() error {
+		rows, err := ps.db.QueryContext(ctx, getAllGaugesSQL)
+		if err != nil {
+			return err
 		}
-		gauges[name] = value
-	}
-	err = rows.Err()
+		defer rows.Close()
+
+		tmp := make(map[string]float64)
+		for rows.Next() {
+			var name string
+			var value float64
+			if err := rows.Scan(&name, &value); err != nil {
+				return err
+			}
+			tmp[name] = value
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		gauges = tmp
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -177,24 +193,35 @@ func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, erro
 }
 
 func (ps *PgStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
-	rows, err := ps.db.QueryContext(ctx, getAllCountersSQL)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	counters := make(map[string]int64)
-	for rows.Next() {
-		var name string
-		var value int64
-		if err := rows.Scan(&name, &value); err != nil {
-			return nil, err
+	var counters map[string]int64
+	err := ps.withRetry(ctx, func() error {
+		rows, err := ps.db.QueryContext(ctx, getAllCountersSQL)
+		if err != nil {
+			return err
 		}
-		counters[name] = value
-	}
-	err = rows.Err()
+		defer rows.Close()
+
+		tmp := make(map[string]int64)
+		for rows.Next() {
+			var name string
+			var value int64
+			if err := rows.Scan(&name, &value); err != nil {
+				return err
+			}
+			tmp[name] = value
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		counters = tmp
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 	return counters, nil
+}
+
+func (ps *PgStorage) withRetry(ctx context.Context, op func() error) error {
+	return retry.Do(ctx, nil, isRetryablePostgresError, op)
 }
