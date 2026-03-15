@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
@@ -10,6 +11,7 @@ import (
 // MetricService определяет бизнес-логику работы с метриками
 type MetricService interface {
 	UpdateMetric(ctx context.Context, metric models.Metrics) error
+	UpdateMetrics(ctx context.Context, metrics []models.Metrics) error
 	GetGauge(ctx context.Context, name string) (float64, error)
 	GetCounter(ctx context.Context, name string) (int64, error)
 	GetAllGauges(ctx context.Context) (map[string]float64, error)
@@ -19,6 +21,8 @@ type MetricService interface {
 type metricService struct {
 	repo Storage
 }
+
+var ErrUnknownMetricType = errors.New("unsupported metric type")
 
 func NewMetricService(repo Storage) MetricService {
 	return &metricService{repo: repo}
@@ -39,6 +43,41 @@ func (s *metricService) UpdateMetric(ctx context.Context, metric models.Metrics)
 	default:
 		return fmt.Errorf("unknown metric type: %s", metric.MType)
 	}
+}
+
+func (s *metricService) UpdateMetrics(ctx context.Context, metrics []models.Metrics) error {
+
+	counters := make(map[string]int64, 0)
+	gauges := make(map[string]float64, 0)
+
+	for _, metric := range metrics {
+		switch metric.MType {
+		case models.Gauge:
+			if metric.Value == nil {
+				return fmt.Errorf("gauge metric must have value")
+			}
+			gauges[string(metric.ID)] = *metric.Value
+		case models.Counter:
+			if metric.Delta == nil {
+				return fmt.Errorf("counter metric must have delta")
+			}
+			if _, ok := counters[string(metric.ID)]; !ok {
+				counters[string(metric.ID)] = *metric.Delta
+			} else {
+				counters[string(metric.ID)] += *metric.Delta
+			}
+		default:
+			return fmt.Errorf("%w: %v", ErrUnknownMetricType, metric.MType)
+		}
+	}
+
+	if len(counters) > 0 || len(gauges) > 0 {
+		if err := s.repo.UpdateMetrics(ctx, counters, gauges); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *metricService) GetGauge(ctx context.Context, name string) (float64, error) {

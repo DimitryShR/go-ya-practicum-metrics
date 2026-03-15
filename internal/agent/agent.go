@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
@@ -38,7 +40,7 @@ func (a *Agent) Run(ctx context.Context) {
 		case <-pollTicker.C:
 			a.collectMetrics()
 		case <-reportTicker.C:
-			a.reportAllMetricJSON()
+			a.reportBatchMetricsJSON()
 		}
 	}
 }
@@ -52,6 +54,36 @@ func (a *Agent) logStartup() {
 
 func (a *Agent) collectMetrics() {
 	a.collector.Collect()
+}
+
+func (a *Agent) reportBatchMetricsJSON() {
+	metrics := a.collector.GetMetricsForReport()
+	if len(metrics) == 0 {
+		log.Printf("No metrics to send at this time")
+		return
+	}
+
+	if err := a.client.BatchSendMetricsJSON(metrics); err != nil {
+		log.Printf("Failed to send metrics to /updates: %v", err)
+
+		// Для обратной совместимости, если метод /updates отсутствует
+		var statusErr *HTTPStatusError
+		if !errors.As(err, &statusErr) {
+			return
+		}
+		switch statusErr.Code {
+		case http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusNotImplemented:
+			if err := a.client.SendAllMetricJSON(metrics); err != nil {
+				log.Printf("Failed to send metrics to /update: %v", err)
+				return
+			}
+		default:
+			return
+		}
+
+	}
+	log.Printf("Successfully sent %d metrics", len(metrics))
+
 }
 
 func (a *Agent) reportAllMetricJSON() {

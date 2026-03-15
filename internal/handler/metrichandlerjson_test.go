@@ -11,6 +11,7 @@ import (
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -184,6 +185,114 @@ func TestMetricHandler_GetMetricValueJSON_Errors(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 			assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestMetricHandler_UpdateMetricsHandlerJSON(t *testing.T) {
+	gaugeMetric := models.Metrics{
+		ID:    "testGauge",
+		MType: "gauge",
+		Value: func() *float64 { v := 10.5; return &v }(),
+	}
+
+	counterMetric := models.Metrics{
+		ID:    "testCounter",
+		MType: "counter",
+		Delta: func() *int64 { v := int64(100); return &v }(),
+	}
+
+	tests := []struct {
+		name           string
+		method         string
+		metrics        []models.Metrics
+		rawBody        string
+		mockSetup      func(*MockMetricService)
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:    "Success update metrics",
+			method:  http.MethodPost,
+			metrics: []models.Metrics{gaugeMetric, counterMetric},
+			mockSetup: func(m *MockMetricService) {
+				m.On("UpdateMetrics", mock.Anything, []models.Metrics{gaugeMetric, counterMetric}).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Invalid JSON body",
+			method:         http.MethodPost,
+			rawBody:        `[{"id":"testGauge","type":"gauge"}`,
+			mockSetup:      func(m *MockMetricService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Invalid request JSON body",
+		},
+		{
+			name:    "Unsupported metric type",
+			method:  http.MethodPost,
+			metrics: []models.Metrics{{ID: "badMetric", MType: "unknown"}},
+			mockSetup: func(m *MockMetricService) {
+				m.On("UpdateMetrics", mock.Anything, []models.Metrics{{ID: "badMetric", MType: "unknown"}}).
+					Return(service.ErrUnknownMetricType)
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectedError:  "Unsupported request type",
+		},
+		{
+			name:    "Service returns error",
+			method:  http.MethodPost,
+			metrics: []models.Metrics{gaugeMetric},
+			mockSetup: func(m *MockMetricService) {
+				m.On("UpdateMetrics", mock.Anything, []models.Metrics{gaugeMetric}).
+					Return(errors.New("Cannot update metrics"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Cannot update metrics",
+		},
+		{
+			name:           "Method not allowed",
+			method:         http.MethodGet,
+			metrics:        []models.Metrics{gaugeMetric},
+			mockSetup:      func(m *MockMetricService) {},
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedError:  "Method not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(MockMetricService)
+			tt.mockSetup(mockService)
+
+			metricHandler := handler.NewMetricHandler(mockService)
+
+			var reqBody *bytes.Buffer
+			if tt.rawBody != "" {
+				reqBody = bytes.NewBufferString(tt.rawBody)
+			} else {
+				reqBody = &bytes.Buffer{}
+				if err := json.NewEncoder(reqBody).Encode(tt.metrics); err != nil {
+					t.Fatalf("Failed to encode metrics to JSON: %v", err)
+				}
+			}
+
+			req := httptest.NewRequest(tt.method, "/updates", reqBody)
+			req.Header.Set("Content-Type", "application/json")
+
+			rr := httptest.NewRecorder()
+
+			metricHandler.UpdateMetricsHandlerJSON(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			if tt.expectedError != "" {
+				assert.Contains(t, rr.Body.String(), tt.expectedError)
+			}
+			if tt.expectedStatus == http.StatusOK {
+				assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+			}
+
 			mockService.AssertExpectations(t)
 		})
 	}

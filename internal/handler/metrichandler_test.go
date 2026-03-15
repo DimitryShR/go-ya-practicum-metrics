@@ -25,6 +25,11 @@ func (m *MockMetricService) UpdateMetric(ctx context.Context, metric models.Metr
 	return args.Error(0)
 }
 
+func (m *MockMetricService) UpdateMetrics(ctx context.Context, metrics []models.Metrics) error {
+	args := m.Called(ctx, metrics)
+	return args.Error(0)
+}
+
 func (m *MockMetricService) GetGauge(ctx context.Context, name string) (float64, error) {
 	args := m.Called(ctx, name)
 	return args.Get(0).(float64), args.Error(1)

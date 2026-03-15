@@ -3,7 +3,7 @@ package agent
 import (
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -82,9 +82,12 @@ func TestMetricsClient_SendMetricJSON(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error but got none")
 		}
-		expectedErr := fmt.Sprintf("server returned status: %d", http.StatusInternalServerError)
-		if err == nil || err.Error() != expectedErr {
-			t.Errorf("Expected server error, got %v", err)
+		var statusErr *HTTPStatusError
+		if !errors.As(err, &statusErr) {
+			t.Fatalf("Expected HTTPStatusError, got %T", err)
+		}
+		if statusErr.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, statusErr.Code)
 		}
 	})
 
@@ -215,6 +218,132 @@ func TestMetricsClient_SendAllMetricJSON(t *testing.T) {
 
 		if err := client.SendAllMetricJSON([]models.Metrics{}); err != nil {
 			t.Errorf("SendAllMetricJSON with empty slice should not error, got %v", err)
+		}
+	})
+}
+
+func TestMetricsClient_BatchSendMetricsJSON(t *testing.T) {
+	t.Run("Successful send batch metrics", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("Expected POST method, got %s", r.Method)
+			}
+			if r.URL.Path != "/updates" {
+				t.Errorf("Expected path /updates, got %s", r.URL.Path)
+			}
+			if r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("Expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+			}
+			if r.Header.Get("Content-Encoding") != "gzip" {
+				t.Errorf("Expected Content-Encoding: gzip, got %s", r.Header.Get("Content-Encoding"))
+			}
+
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				t.Fatalf("failed to create gzip reader: %v", err)
+			}
+			defer gr.Close()
+
+			var got []models.Metrics
+			if err := json.NewDecoder(gr).Decode(&got); err != nil {
+				t.Fatalf("failed to decode body: %v", err)
+			}
+
+			if len(got) != 2 {
+				t.Fatalf("unexpected metrics length: %d", len(got))
+			}
+
+			if got[0].ID != "metric1" || got[0].MType != models.Gauge || got[0].Value == nil || *got[0].Value != 1.5 {
+				t.Fatalf("unexpected first metric in body: %+v", got[0])
+			}
+			if got[1].ID != "metric2" || got[1].MType != models.Counter || got[1].Delta == nil || *got[1].Delta != 10 {
+				t.Fatalf("unexpected second metric in body: %+v", got[1])
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
+
+		metrics := []models.Metrics{
+			{
+				MType: models.Gauge,
+				ID:    "metric1",
+				Value: func() *float64 { v := 1.5; return &v }(),
+			},
+			{
+				MType: models.Counter,
+				ID:    "metric2",
+				Delta: func() *int64 { v := int64(10); return &v }(),
+			},
+		}
+
+		if err := client.BatchSendMetricsJSON(metrics); err != nil {
+			t.Errorf("BatchSendMetricsJSON() error = %v", err)
+		}
+	})
+
+	t.Run("Server returns error status", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
+
+		metrics := []models.Metrics{
+			{
+				MType: models.Gauge,
+				ID:    "metric1",
+				Value: func() *float64 { v := 1.5; return &v }(),
+			},
+		}
+
+		err := client.BatchSendMetricsJSON(metrics)
+		if err == nil {
+			t.Error("Expected error but got none")
+		}
+		var statusErr *HTTPStatusError
+		if !errors.As(err, &statusErr) {
+			t.Fatalf("Expected HTTPStatusError, got %T", err)
+		}
+		if statusErr.Code != http.StatusInternalServerError {
+			t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, statusErr.Code)
+		}
+	})
+
+	t.Run("Network error", func(t *testing.T) {
+		cfg := config.NewTestAgentConfig("http://invalid-server:9999")
+		client := NewMetricsClient(cfg)
+		if client == nil {
+			t.Fatal("Failed to create MetricsClient")
+		}
+
+		if client.client == nil {
+			t.Fatal("httpClient is nil")
+		}
+		client.client.SetTimeout(100 * time.Millisecond)
+		client.client.SetRetryCount(0)
+
+		metrics := []models.Metrics{
+			{
+				MType: models.Gauge,
+				ID:    "metric1",
+				Value: func() *float64 { v := 1.5; return &v }(),
+			},
+		}
+
+		err := client.BatchSendMetricsJSON(metrics)
+		if err == nil {
+			t.Error("Expected network error but got none")
 		}
 	})
 }
