@@ -3,6 +3,27 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"embed"
+)
+
+//go:embed sql/*.sql
+var sqlFS embed.FS
+
+func mustSQL(path string) string {
+	b, err := sqlFS.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+var (
+	updateCounterSQL  = mustSQL("sql/updatecounter.sql")
+	updateGaugeSQL    = mustSQL("sql/updategauge.sql")
+	getCounterSQL     = mustSQL("sql/getcounter.sql")
+	getGaugeSQL       = mustSQL("sql/getgauge.sql")
+	getAllCountersSQL = mustSQL("sql/getallcounters.sql")
+	getAllGaugesSQL   = mustSQL("sql/getallgauges.sql")
 )
 
 type PgStorage struct {
@@ -14,15 +35,13 @@ func NewPgStorage(db *sql.DB) *PgStorage {
 }
 
 func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
-	query := `
-		INSERT INTO metrics.counters (name, value)
-		VALUES ($1, $2)
-		ON CONFLICT (name)
-		DO UPDATE SET
-		value = counters.value + EXCLUDED.value,
-		updated_at = now()
-	`
-	res, err := ps.db.ExecContext(ctx, query, name, value)
+	stmt, err := ps.db.PrepareContext(ctx, updateCounterSQL)
+	if err != nil {
+		return err
+	}
+
+	// res, err := ps.db.ExecContext(ctx, query, name, value)
+	res, err := stmt.ExecContext(ctx, name, value)
 	if err != nil {
 		return err
 	}
@@ -30,6 +49,7 @@ func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -37,17 +57,17 @@ func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64
 }
 
 func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
-	query := `
-		INSERT INTO metrics.gauges (name, value)
-		VALUES ($1, $2)
-		ON CONFLICT (name)
-		DO UPDATE SET value = EXCLUDED.value,
-		updated_at = now()
-	`
-	res, err := ps.db.ExecContext(ctx, query, name, value)
+	stmt, err := ps.db.PrepareContext(ctx, updateGaugeSQL)
 	if err != nil {
 		return err
 	}
+
+	// res, err := ps.db.ExecContext(ctx, query, name, value)
+	res, err := stmt.ExecContext(ctx, name, value)
+	if err != nil {
+		return err
+	}
+
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return err
@@ -59,13 +79,8 @@ func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64
 }
 
 func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error) {
-	query := `
-		SELECT value
-		FROM metrics.counters
-		WHERE name=$1
-	`
 	var value int64
-	err := ps.db.QueryRowContext(ctx, query, name).Scan(&value)
+	err := ps.db.QueryRowContext(ctx, getCounterSQL, name).Scan(&value)
 	if err != nil {
 		return 0, err
 	}
@@ -74,13 +89,8 @@ func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error)
 }
 
 func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error) {
-	query := `
-		SELECT value
-		FROM metrics.gauges
-		WHERE name=$1
-	`
 	var value float64
-	err := ps.db.QueryRowContext(ctx, query, name).Scan(&value)
+	err := ps.db.QueryRowContext(ctx, getGaugeSQL, name).Scan(&value)
 	if err != nil {
 		return 0, err
 	}
@@ -88,11 +98,7 @@ func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error)
 }
 
 func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
-	query := `
-		SELECT name, value
-		FROM metrics.gauges
-	`
-	rows, err := ps.db.QueryContext(ctx, query)
+	rows, err := ps.db.QueryContext(ctx, getAllGaugesSQL)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +121,7 @@ func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, erro
 }
 
 func (ps *PgStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
-	query := `
-		SELECT name, value
-		FROM metrics.counters
-	`
-	rows, err := ps.db.QueryContext(ctx, query)
+	rows, err := ps.db.QueryContext(ctx, getAllCountersSQL)
 	if err != nil {
 		return nil, err
 	}
