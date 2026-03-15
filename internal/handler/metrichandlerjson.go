@@ -135,7 +135,7 @@ func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http
 
 	// Обновляем метрику через сервис
 	if err := mh.service.UpdateMetrics(r.Context(), metrics); err != nil {
-		if errors.Is(err, service.UnknownMetricTypeErr) {
+		if errors.Is(err, service.ErrUnknownMetricType) {
 			logger.Log.Info("unsupported request type", zap.String("err", err.Error()))
 			writeJSONError(w, http.StatusUnprocessableEntity, "Unsupported request type")
 			return

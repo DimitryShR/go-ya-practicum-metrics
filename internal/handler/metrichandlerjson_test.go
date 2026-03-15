@@ -235,7 +235,7 @@ func TestMetricHandler_UpdateMetricsHandlerJSON(t *testing.T) {
 			metrics: []models.Metrics{{ID: "badMetric", MType: "unknown"}},
 			mockSetup: func(m *MockMetricService) {
 				m.On("UpdateMetrics", mock.Anything, []models.Metrics{{ID: "badMetric", MType: "unknown"}}).
-					Return(service.UnknownMetricTypeErr)
+					Return(service.ErrUnknownMetricType)
 			},
 			expectedStatus: http.StatusUnprocessableEntity,
 			expectedError:  "Unsupported request type",

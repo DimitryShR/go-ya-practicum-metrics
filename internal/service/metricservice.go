@@ -22,7 +22,7 @@ type metricService struct {
 	repo Storage
 }
 
-var UnknownMetricTypeErr = errors.New("unsupported metric type")
+var ErrUnknownMetricType = errors.New("unsupported metric type")
 
 func NewMetricService(repo Storage) MetricService {
 	return &metricService{repo: repo}
@@ -67,7 +67,7 @@ func (s *metricService) UpdateMetrics(ctx context.Context, metrics []models.Metr
 				counters[string(metric.ID)] += *metric.Delta
 			}
 		default:
-			return fmt.Errorf("%w: %v", UnknownMetricTypeErr, metric.MType)
+			return fmt.Errorf("%w: %v", ErrUnknownMetricType, metric.MType)
 		}
 	}
 
