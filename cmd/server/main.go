@@ -95,6 +95,7 @@ func newRouter(metricHandler *handler.MetricHandler, pingHandler *handler.PingHa
 	r.Post("/update", metricHandler.UpdateMetricHandlerJSON)
 	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)
 
+	r.Post("/updates", metricHandler.UpdateMetricsHandlerJSON)
 	r.Post("/value", metricHandler.GetMetricValueJSON)
 	r.Get("/value/{metricType}/{metricName}", metricHandler.GetMetricValue)
 	r.Get("/", metricHandler.GetAllMetrics)

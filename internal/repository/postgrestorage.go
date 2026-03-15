@@ -39,8 +39,8 @@ func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64
 	if err != nil {
 		return err
 	}
+	defer stmt.Close()
 
-	// res, err := ps.db.ExecContext(ctx, query, name, value)
 	res, err := stmt.ExecContext(ctx, name, value)
 	if err != nil {
 		return err
@@ -61,8 +61,8 @@ func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64
 	if err != nil {
 		return err
 	}
+	defer stmt.Close()
 
-	// res, err := ps.db.ExecContext(ctx, query, name, value)
 	res, err := stmt.ExecContext(ctx, name, value)
 	if err != nil {
 		return err
@@ -76,6 +76,62 @@ func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (ps *PgStorage) updateCounters(ctx context.Context, tx *sql.Tx, counters map[string]int64) error {
+	stmt, err := tx.PrepareContext(ctx, updateCounterSQL)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for counter, value := range counters {
+		_, err := stmt.ExecContext(ctx, counter, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ps *PgStorage) updateGauges(ctx context.Context, tx *sql.Tx, gauges map[string]float64) error {
+	stmt, err := tx.PrepareContext(ctx, updateGaugeSQL)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for gauge, value := range gauges {
+		_, err := stmt.ExecContext(ctx, gauge, value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ps *PgStorage) UpdateMetrics(ctx context.Context, counters map[string]int64, gauges map[string]float64) error {
+	tx, err := ps.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if len(counters) > 0 {
+		err := ps.updateCounters(ctx, tx, counters)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(gauges) > 0 {
+		err := ps.updateGauges(ctx, tx, gauges)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error) {

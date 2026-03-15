@@ -40,6 +40,38 @@ func (ms *MemStorage) UpdateGauge(ctx context.Context, name string, value float6
 	return ms.saveIfEnabled()
 }
 
+func (ms *MemStorage) updateCounters(ctx context.Context, metrics map[string]int64) error {
+	for metric, value := range metrics {
+		if err := ms.UpdateCounter(ctx, metric, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ms *MemStorage) updateGauges(ctx context.Context, metrics map[string]float64) error {
+	for metric, value := range metrics {
+		if err := ms.UpdateGauge(ctx, metric, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ms *MemStorage) UpdateMetrics(ctx context.Context, counters map[string]int64, gauges map[string]float64) error {
+	if len(counters) > 0 {
+		if err := ms.updateCounters(ctx, counters); err != nil {
+			return err
+		}
+	}
+	if len(gauges) > 0 {
+		if err := ms.updateGauges(ctx, gauges); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
