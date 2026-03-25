@@ -2,11 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +39,7 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 	}
 
 	// Обновляем метрику через сервис
-	if err := mh.service.UpdateMetric(metric); err != nil {
+	if err := mh.service.UpdateMetric(r.Context(), metric); err != nil {
 		logger.Log.Info("cannot update metric", zap.Error(err))
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metric")
 		return
@@ -89,8 +91,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 	switch metric.MType {
 	case models.Gauge:
 		// Получаем значение Gauge метрики из сервиса
-		value, ok := mh.service.GetGauge(metric.ID)
-		if !ok {
+		value, err := mh.service.GetGauge(r.Context(), metric.ID)
+		if err != nil {
 			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
@@ -99,8 +101,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusOK, metric)
 	case models.Counter:
 		// Получаем значение Counter метрики из сервиса
-		value, ok := mh.service.GetCounter(metric.ID)
-		if !ok {
+		value, err := mh.service.GetCounter(r.Context(), metric.ID)
+		if err != nil {
 			writeJSONError(w, http.StatusNotFound, "Metric not found")
 			return
 		}
@@ -110,4 +112,37 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 	default:
 		writeJSONError(w, http.StatusUnprocessableEntity, "Unsupported metric type")
 	}
+}
+
+// UpdateMetricsHandlerJSON - обработчик POST /updates (JSON тело)
+func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed. Expected POST")
+		return
+	}
+
+	// Десериализуем тело запроса в структуру модели
+	logger.Log.Debug("decoding request")
+	var metrics []models.Metrics
+
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&metrics); err != nil {
+		logger.Log.Info("cannot decode request JSON body", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, "Invalid request JSON body")
+		return
+	}
+
+	// Обновляем метрику через сервис
+	if err := mh.service.UpdateMetrics(r.Context(), metrics); err != nil {
+		if errors.Is(err, service.ErrUnknownMetricType) {
+			logger.Log.Info("unsupported request type", zap.String("err", err.Error()))
+			writeJSONError(w, http.StatusUnprocessableEntity, "Unsupported request type")
+			return
+		}
+		logger.Log.Info("cannot update metrics", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, "Cannot update metrics")
+		return
+	}
+	writeJSON(w, http.StatusOK, metrics)
 }

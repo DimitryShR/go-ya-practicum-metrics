@@ -1,49 +1,101 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 )
 
 // MetricService определяет бизнес-логику работы с метриками
 type MetricService interface {
-	UpdateMetric(metric models.Metrics) error
-	GetGauge(name string) (float64, bool)
-	GetCounter(name string) (int64, bool)
-	GetAllGauges() map[string]float64
-	GetAllCounters() map[string]int64
+	UpdateMetric(ctx context.Context, metric models.Metrics) error
+	UpdateMetrics(ctx context.Context, metrics []models.Metrics) error
+	GetGauge(ctx context.Context, name string) (float64, error)
+	GetCounter(ctx context.Context, name string) (int64, error)
+	GetAllGauges(ctx context.Context) (map[string]float64, error)
+	GetAllCounters(ctx context.Context) (map[string]int64, error)
 }
 
 type metricService struct {
-	repo repository.Storage
+	repo Storage
 }
 
-func NewMetricService(repo repository.Storage) MetricService {
+var ErrUnknownMetricType = errors.New("unsupported metric type")
+
+func NewMetricService(repo Storage) MetricService {
 	return &metricService{repo: repo}
 }
 
-func (s *metricService) UpdateMetric(metric models.Metrics) error {
-	// Здесь можно добавить бизнес-логику
-	// Пока просто делегируем в репозиторий
-	return s.repo.UpdateMetric(metric)
+func (s *metricService) UpdateMetric(ctx context.Context, metric models.Metrics) error {
+	switch metric.MType {
+	case models.Gauge:
+		if metric.Value == nil {
+			return fmt.Errorf("gauge metric must have value")
+		}
+		return s.repo.UpdateGauge(ctx, metric.ID, *metric.Value)
+	case models.Counter:
+		if metric.Delta == nil {
+			return fmt.Errorf("counter metric must have delta")
+		}
+		return s.repo.UpdateCounter(ctx, metric.ID, *metric.Delta)
+	default:
+		return fmt.Errorf("unknown metric type: %s", metric.MType)
+	}
 }
 
-func (s *metricService) GetGauge(name string) (float64, bool) {
+func (s *metricService) UpdateMetrics(ctx context.Context, metrics []models.Metrics) error {
+
+	counters := make(map[string]int64, 0)
+	gauges := make(map[string]float64, 0)
+
+	for _, metric := range metrics {
+		switch metric.MType {
+		case models.Gauge:
+			if metric.Value == nil {
+				return fmt.Errorf("gauge metric must have value")
+			}
+			gauges[string(metric.ID)] = *metric.Value
+		case models.Counter:
+			if metric.Delta == nil {
+				return fmt.Errorf("counter metric must have delta")
+			}
+			if _, ok := counters[string(metric.ID)]; !ok {
+				counters[string(metric.ID)] = *metric.Delta
+			} else {
+				counters[string(metric.ID)] += *metric.Delta
+			}
+		default:
+			return fmt.Errorf("%w: %v", ErrUnknownMetricType, metric.MType)
+		}
+	}
+
+	if len(counters) > 0 || len(gauges) > 0 {
+		if err := s.repo.UpdateMetrics(ctx, counters, gauges); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *metricService) GetGauge(ctx context.Context, name string) (float64, error) {
 	// Возвращаем gauge по имени
-	return s.repo.GetGauge(name)
+	return s.repo.GetGauge(ctx, name)
 }
 
-func (s *metricService) GetCounter(name string) (int64, bool) {
+func (s *metricService) GetCounter(ctx context.Context, name string) (int64, error) {
 	// Возвращаем counter по имени
-	return s.repo.GetCounter(name)
+	return s.repo.GetCounter(ctx, name)
 }
 
-func (s *metricService) GetAllGauges() map[string]float64 {
+func (s *metricService) GetAllGauges(ctx context.Context) (map[string]float64, error) {
 	// Возвращаем все gauge метрики
-	return s.repo.GetAllGauges()
+	return s.repo.GetAllGauges(ctx)
 }
 
-func (s *metricService) GetAllCounters() map[string]int64 {
+func (s *metricService) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	// Возвращаем все counter метрики
-	return s.repo.GetAllCounters()
+	return s.repo.GetAllCounters(ctx)
 }
