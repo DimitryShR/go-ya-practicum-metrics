@@ -21,23 +21,23 @@ func NewMemStorage() *MemStorage {
 }
 
 func (ms *MemStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return err
 	}
 	ms.mu.Lock()
 	ms.counters[name] += value
 	ms.mu.Unlock()
-	return ms.saveIfEnabled()
+	return ms.saveIfEnabled(ctx)
 }
 
 func (ms *MemStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return err
 	}
 	ms.mu.Lock()
 	ms.gauges[name] = value
 	ms.mu.Unlock()
-	return ms.saveIfEnabled()
+	return ms.saveIfEnabled(ctx)
 }
 
 func (ms *MemStorage) updateCounters(ctx context.Context, metrics map[string]int64) error {
@@ -73,7 +73,7 @@ func (ms *MemStorage) UpdateMetrics(ctx context.Context, counters map[string]int
 }
 
 func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error) {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return 0, err
 	}
 	ms.mu.RLock()
@@ -86,7 +86,7 @@ func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error
 }
 
 func (ms *MemStorage) GetGauge(ctx context.Context, name string) (float64, error) {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return 0, err
 	}
 	ms.mu.RLock()
@@ -99,7 +99,7 @@ func (ms *MemStorage) GetGauge(ctx context.Context, name string) (float64, error
 }
 
 func (ms *MemStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return nil, err
 	}
 	ms.mu.RLock()
@@ -112,7 +112,7 @@ func (ms *MemStorage) GetAllGauges(ctx context.Context) (map[string]float64, err
 }
 
 func (ms *MemStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
-	if err := ctx.Err(); err != nil {
+	if err := requireContext(ctx); err != nil {
 		return nil, err
 	}
 	ms.mu.RLock()

@@ -165,9 +165,10 @@ func runMigrations(migrateDSN string) error {
 
 func initFileStorage(cfg *config.ServerConfig) (service.Storage, error) {
 	memStorage := repository.NewMemStorage()
+	ctx := context.Background()
 
 	if cfg.Restore {
-		if ok, err := memStorage.LoadFromFile(cfg.FileStoragePath); err != nil {
+		if ok, err := memStorage.LoadFromFile(ctx, cfg.FileStoragePath); err != nil {
 			return nil, fmt.Errorf("restore metrics from file: %w", err)
 		} else if ok {
 			logger.Log.Info("Metrics restored from file", zap.String("file", cfg.FileStoragePath))
@@ -181,15 +182,15 @@ func initFileStorage(cfg *config.ServerConfig) (service.Storage, error) {
 		memStorage.EnableSyncSave(cfg.FileStoragePath)
 		logger.Log.Info("Enabled synchronous metrics persistence", zap.String("file", cfg.FileStoragePath))
 	default:
-		go func(path string, interval time.Duration) {
+		go func(ctx context.Context, path string, interval time.Duration) {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			for range ticker.C {
-				if err := memStorage.SaveToFile(path); err != nil {
+				if err := memStorage.SaveToFile(ctx, path); err != nil {
 					logger.Log.Error("Cannot save metrics to file", zap.Error(err), zap.String("file", path))
 				}
 			}
-		}(cfg.FileStoragePath, cfg.StoreInterval)
+		}(ctx, cfg.FileStoragePath, cfg.StoreInterval)
 		logger.Log.Info(
 			"Enabled periodic metrics persistence",
 			zap.Duration("interval", cfg.StoreInterval),

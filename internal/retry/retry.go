@@ -2,6 +2,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -14,12 +15,14 @@ var DefaultDelays = []time.Duration{
 	5 * time.Second,
 }
 
+var ErrNilContext = errors.New("nil context")
+
 // Do выполняет операцию с повторами по заданным интервалам.
 // Если delays равен nil, используется DefaultDelays.
 // shouldRetry определяет, можно ли повторять ошибку.
 func Do(ctx context.Context, delays []time.Duration, shouldRetry func(error) bool, op func() error) error {
 	if ctx == nil {
-		ctx = context.Background()
+		return ErrNilContext
 	}
 	if delays == nil {
 		delays = DefaultDelays
