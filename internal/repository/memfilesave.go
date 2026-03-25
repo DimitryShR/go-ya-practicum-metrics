@@ -18,18 +18,21 @@ func (ms *MemStorage) EnableSyncSave(path string) {
 	ms.syncSavePath = path
 }
 
-func (ms *MemStorage) saveIfEnabled() error {
+func (ms *MemStorage) saveIfEnabled(ctx context.Context) error {
 	if ms.syncSavePath == "" {
 		return nil
 	}
-	return ms.SaveToFile(ms.syncSavePath)
+	return ms.SaveToFile(ctx, ms.syncSavePath)
 }
 
-func (ms *MemStorage) SaveToFile(path string) error {
+func (ms *MemStorage) SaveToFile(ctx context.Context, path string) error {
 	if path == "" {
 		return errors.New("file path is empty")
 	}
-	ctx := context.Background()
+	if err := requireContext(ctx); err != nil {
+		return err
+	}
+
 	gauges, err := ms.GetAllGauges(ctx)
 	if err != nil {
 		return fmt.Errorf("get all gauges: %w", err)
@@ -61,6 +64,9 @@ func (ms *MemStorage) SaveToFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("marshal storage snapshot: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -90,9 +96,12 @@ func (ms *MemStorage) SaveToFile(path string) error {
 	return nil
 }
 
-func (ms *MemStorage) LoadFromFile(path string) (bool, error) {
+func (ms *MemStorage) LoadFromFile(ctx context.Context, path string) (bool, error) {
 	if path == "" {
 		return false, errors.New("file path is empty")
+	}
+	if err := requireContext(ctx); err != nil {
+		return false, err
 	}
 
 	data, err := os.ReadFile(path)
@@ -106,6 +115,9 @@ func (ms *MemStorage) LoadFromFile(path string) (bool, error) {
 
 	if len(data) == 0 {
 		return false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
 	}
 
 	var metrics []models.Metrics
@@ -128,10 +140,11 @@ func (ms *MemStorage) LoadFromFile(path string) (bool, error) {
 		}()
 	}
 
-	ctx := context.Background()
-
 	var errs []error
 	for _, m := range metrics {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
 		err := ms.loadMetric(ctx, m)
 		if err != nil {
 			errs = append(errs, err)
