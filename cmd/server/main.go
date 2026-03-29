@@ -17,6 +17,7 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-migrate/migrate/v4"
@@ -55,6 +56,11 @@ func run() error {
 
 	logger.Log.Info("Running server", zap.String("address", cfg.Address))
 
+	var signer *sign.Signer
+	if cfg.SignKey != "" {
+		signer = sign.NewSigner(cfg.SignKey)
+	}
+
 	mode := getMode(cfg)
 	logger.Log.Info("Storage mode selected", zap.String("mode", string(mode)))
 
@@ -82,15 +88,22 @@ func run() error {
 	metricHandler := handler.NewMetricHandler(metricService)
 
 	pingHandler := handler.NewPingHandler(db)
-	router := newRouter(metricHandler, pingHandler)
+	router := newRouter(metricHandler, pingHandler, signer)
 
 	return http.ListenAndServe(cfg.Address, router)
 }
 
-func newRouter(metricHandler *handler.MetricHandler, pingHandler *handler.PingHandler) http.Handler {
+func newRouter(
+	metricHandler *handler.MetricHandler,
+	pingHandler *handler.PingHandler,
+	signer *sign.Signer,
+) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(middleware.LogRequest, middleware.GzipMiddleware)
+	if signer != nil {
+		r.Use(middleware.SignMiddleware(signer))
+	}
 
 	r.Post("/update", metricHandler.UpdateMetricHandlerJSON)
 	r.With(middleware.ParseUpdatePathHandler).Post("/update/*", metricHandler.UpdateMetricHandler)

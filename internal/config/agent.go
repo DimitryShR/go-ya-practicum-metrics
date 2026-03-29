@@ -15,6 +15,7 @@ type AgentConfig struct {
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 	ServerAddress  string
+	SignKey        string
 }
 
 // Создаем новый экземпляр конфигурации агента, загружая значения конфигурации
@@ -24,6 +25,7 @@ func NewAgentConfig() *AgentConfig {
 		ServerAddress:  "http://localhost:8080",
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
+		SignKey:        "",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -62,6 +64,7 @@ func (ac *AgentConfig) envParse() error {
 		PollInterval   *float64 `env:"POLL_INTERVAL"`
 		ReportInterval *float64 `env:"REPORT_INTERVAL"`
 		ServerAddress  *string  `env:"ADDRESS"`
+		SignKey        *string  `env:"KEY"`
 	}{}
 	err := env.Parse(&tmpCfg)
 	if err != nil {
@@ -77,6 +80,9 @@ func (ac *AgentConfig) envParse() error {
 	if tmpCfg.ServerAddress != nil {
 		ac.ServerAddress = *tmpCfg.ServerAddress
 	}
+	if tmpCfg.SignKey != nil {
+		ac.SignKey = *tmpCfg.SignKey
+	}
 	return nil
 }
 
@@ -84,7 +90,7 @@ func (ac *AgentConfig) envParse() error {
 func (ac *AgentConfig) parseFlags() error {
 	// Флаг для адреса сервера
 	flag.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
-
+	flag.StringVar(&ac.SignKey, "k", ac.SignKey, "Key for sign data")
 	// Флаги для интервалов времени
 	var pollIntervalSec, reportIntervalSec float64
 	flag.Float64Var(&pollIntervalSec, "p", 2.0, "Poll interval in seconds")
@@ -121,5 +127,6 @@ func (ac *AgentConfig) validate() error {
 }
 
 func (ac *AgentConfig) String() string {
-	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s", ac.ServerAddress, ac.PollInterval, ac.ReportInterval)
+	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s; Sign key: %s",
+		ac.ServerAddress, ac.PollInterval, ac.ReportInterval, ac.SignKey)
 }
