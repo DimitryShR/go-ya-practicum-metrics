@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 )
 
 func TestMetricsClient_SendMetricJSON(t *testing.T) {
@@ -48,6 +50,73 @@ func TestMetricsClient_SendMetricJSON(t *testing.T) {
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
 		}
+
+		metric := models.Metrics{
+			MType: models.Gauge,
+			ID:    "testMetric",
+			Value: func() *float64 { v := 10.5; return &v }(),
+		}
+
+		if err := client.SendMetricJSON(metric); err != nil {
+			t.Errorf("SendMetricJSON() error = %v", err)
+		}
+	})
+
+	t.Run("Successful send with HashSHA256", func(t *testing.T) {
+		const signKey = "testkey"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				t.Fatalf("failed to create gzip reader: %v", err)
+			}
+			defer gr.Close()
+
+			body, err := io.ReadAll(gr)
+			if err != nil {
+				t.Fatalf("failed to read request body: %v", err)
+			}
+
+			got := r.Header.Get("HashSHA256")
+			if got == "" {
+				t.Fatal("Expected HashSHA256 header to be set")
+			}
+
+			want := sign.NewSigner(signKey).Sign(body)
+			if got != want {
+				t.Fatalf("Expected HashSHA256: %s, got %s", want, got)
+			}
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		cfg.SignKey = signKey
+		client := NewMetricsClient(cfg)
+
+		metric := models.Metrics{
+			MType: models.Gauge,
+			ID:    "testMetric",
+			Value: func() *float64 { v := 10.5; return &v }(),
+		}
+
+		if err := client.SendMetricJSON(metric); err != nil {
+			t.Errorf("SendMetricJSON() error = %v", err)
+		}
+	})
+
+	t.Run("Successful send without sign key omits HashSHA256", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("HashSHA256"); got != "" {
+				t.Errorf("Expected empty HashSHA256 header, got %s", got)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		client := NewMetricsClient(cfg)
 
 		metric := models.Metrics{
 			MType: models.Gauge,
@@ -268,6 +337,87 @@ func TestMetricsClient_BatchSendMetricsJSON(t *testing.T) {
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
 		}
+
+		metrics := []models.Metrics{
+			{
+				MType: models.Gauge,
+				ID:    "metric1",
+				Value: func() *float64 { v := 1.5; return &v }(),
+			},
+			{
+				MType: models.Counter,
+				ID:    "metric2",
+				Delta: func() *int64 { v := int64(10); return &v }(),
+			},
+		}
+
+		if err := client.BatchSendMetricsJSON(metrics); err != nil {
+			t.Errorf("BatchSendMetricsJSON() error = %v", err)
+		}
+	})
+
+	t.Run("Successful send batch metrics with HashSHA256", func(t *testing.T) {
+		const signKey = "testkey"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				t.Fatalf("failed to create gzip reader: %v", err)
+			}
+			defer gr.Close()
+
+			body, err := io.ReadAll(gr)
+			if err != nil {
+				t.Fatalf("failed to read request body: %v", err)
+			}
+
+			got := r.Header.Get("HashSHA256")
+			if got == "" {
+				t.Fatal("Expected HashSHA256 header to be set")
+			}
+
+			want := sign.NewSigner(signKey).Sign(body)
+			if got != want {
+				t.Fatalf("Expected HashSHA256: %s, got %s", want, got)
+			}
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		cfg.SignKey = signKey
+		client := NewMetricsClient(cfg)
+
+		metrics := []models.Metrics{
+			{
+				MType: models.Gauge,
+				ID:    "metric1",
+				Value: func() *float64 { v := 1.5; return &v }(),
+			},
+			{
+				MType: models.Counter,
+				ID:    "metric2",
+				Delta: func() *int64 { v := int64(10); return &v }(),
+			},
+		}
+
+		if err := client.BatchSendMetricsJSON(metrics); err != nil {
+			t.Errorf("BatchSendMetricsJSON() error = %v", err)
+		}
+	})
+
+	t.Run("Successful send batch metrics without sign key omits HashSHA256", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("HashSHA256"); got != "" {
+				t.Errorf("Expected empty HashSHA256 header, got %s", got)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		cfg := config.NewTestAgentConfig(server.URL)
+		client := NewMetricsClient(cfg)
 
 		metrics := []models.Metrics{
 			{

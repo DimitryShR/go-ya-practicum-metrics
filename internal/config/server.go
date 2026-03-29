@@ -19,6 +19,7 @@ type ServerConfig struct {
 	Restore         bool          // `env:"RESTORE"`
 	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 	DBMigrateDsn    db.PgConn     // `env:"DATABASE_MIGRATE_DSN"`
+	SignKey         string        // `env:"KEY"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -32,6 +33,7 @@ func NewServerConfig() *ServerConfig {
 		Restore:         true,
 		DBDsn:           db.PgConn{},
 		DBMigrateDsn:    db.PgConn{},
+		SignKey:         "",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -64,6 +66,8 @@ func (sc *ServerConfig) parseFlags() error {
 	// Подключение к БД для миграции через флаг -m
 	var dbMigrateDsnStr string
 	flag.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
+
+	flag.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
 
 	flag.Parse()
 
@@ -106,6 +110,7 @@ func (sc *ServerConfig) envParse() error {
 		Restore         *bool    `env:"RESTORE"`
 		DBDsn           *string  `env:"DATABASE_DSN"`
 		DBMigrateDsn    *string  `env:"DATABASE_MIGRATE_DSN"`
+		SignKey         *string  `env:"KEY"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -145,6 +150,9 @@ func (sc *ServerConfig) envParse() error {
 		if conn != nil {
 			sc.DBMigrateDsn = *conn
 		}
+	}
+	if tmpCfg.SignKey != nil {
+		sc.SignKey = *tmpCfg.SignKey
 	}
 
 	return nil

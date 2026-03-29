@@ -18,7 +18,6 @@ func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 	if err := json.NewEncoder(&buf).Encode(metric); err != nil {
 		return fmt.Errorf("failed to encode metric to JSON: %w", err)
 	}
-
 	compressedBody, err := compress.GzipData(buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("failed to compress request body: %w", err)
@@ -27,7 +26,9 @@ func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 	url := fmt.Sprintf("%s/update", c.config.ServerAddress)
 
 	return c.withRetry(func() error {
-		resp, err := c.client.R().
+		req := c.client.R()
+		c.setHashHeader(req, buf.Bytes())
+		resp, err := req.
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
 			SetBody(compressedBody).
@@ -75,7 +76,9 @@ func (c *MetricsClient) BatchSendMetricsJSON(metrics []models.Metrics) error {
 	url := fmt.Sprintf("%s/updates", c.config.ServerAddress)
 
 	return c.withRetry(func() error {
-		resp, err := c.client.R().
+		req := c.client.R()
+		c.setHashHeader(req, buf.Bytes())
+		resp, err := req.
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
 			SetBody(compressedBody).
