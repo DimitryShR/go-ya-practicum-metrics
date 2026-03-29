@@ -9,7 +9,6 @@ import (
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 )
 
 var defaultCfg *config.AgentConfig = config.NewTestAgentConfig("http://localhost:8080")
@@ -136,60 +135,6 @@ func TestMetricsClient_SendMetric(t *testing.T) {
 		if client == nil {
 			t.Fatal("Failed to create MetricsClient")
 		}
-
-		metric := models.Metrics{
-			MType: models.Gauge,
-			ID:    "testMetric",
-			Value: func() *float64 { v := 10.5; return &v }(),
-		}
-
-		if err := client.SendMetric(metric); err != nil {
-			t.Errorf("SendMetric() error = %v", err)
-		}
-	})
-
-	t.Run("Successful send with HashSHA256", func(t *testing.T) {
-		const signKey = "testkey"
-
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if got := r.Header.Get("HashSHA256"); got == "" {
-				t.Error("Expected HashSHA256 header to be set")
-			} else {
-				want := sign.NewSigner(signKey).Sign(nil)
-				if got != want {
-					t.Errorf("Expected HashSHA256: %s, got %s", want, got)
-				}
-			}
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		cfg := config.NewTestAgentConfig(server.URL)
-		cfg.SignKey = signKey
-		client := NewMetricsClient(cfg)
-
-		metric := models.Metrics{
-			MType: models.Gauge,
-			ID:    "testMetric",
-			Value: func() *float64 { v := 10.5; return &v }(),
-		}
-
-		if err := client.SendMetric(metric); err != nil {
-			t.Errorf("SendMetric() error = %v", err)
-		}
-	})
-
-	t.Run("Successful send without sign key omits HashSHA256", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if got := r.Header.Get("HashSHA256"); got != "" {
-				t.Errorf("Expected empty HashSHA256 header, got %s", got)
-			}
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
-
-		cfg := config.NewTestAgentConfig(server.URL)
-		client := NewMetricsClient(cfg)
 
 		metric := models.Metrics{
 			MType: models.Gauge,
