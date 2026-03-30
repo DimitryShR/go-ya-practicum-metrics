@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
@@ -8,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var allGaugeMetrics = []string{
+var runtimeGaugeMetrics = []string{
 	"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
 	"HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects", "HeapReleased",
 	"HeapSys", "LastGC", "Lookups", "MCacheInuse", "MCacheSys",
@@ -27,12 +29,12 @@ func TestMetricsCollector_Collect(t *testing.T) {
 		{
 			name:         "single collect call",
 			collectCount: 1,
-			wantMetrics:  allGaugeMetrics,
+			wantMetrics:  runtimeGaugeMetrics,
 		},
 		{
 			name:         "multiple collect calls",
 			collectCount: 3,
-			wantMetrics:  allGaugeMetrics,
+			wantMetrics:  runtimeGaugeMetrics,
 		},
 	}
 
@@ -147,6 +149,108 @@ func TestMetricsCollector_NewMetricsCollector(t *testing.T) {
 	collector := NewMetricsCollector()
 	assert.NotNil(t, collector)
 	assert.NotNil(t, collector.metrics)
+	assert.NotNil(t, collector.readMemStats)
+	assert.NotNil(t, collector.readVirtualMemory)
+	assert.NotNil(t, collector.readCPUPercent)
 	assert.Equal(t, 0, len(collector.metrics))
 	assert.Equal(t, int64(0), collector.pollCount)
+}
+
+func TestMetricsCollector_CollectSystem(t *testing.T) {
+	collector := NewMetricsCollector()
+	collector.readVirtualMemory = func() (*virtualMemoryStat, error) {
+		return &virtualMemoryStat{
+			Total: 4096,
+			Free:  1024,
+		}, nil
+	}
+	collector.readCPUPercent = func() ([]float64, error) {
+		return []float64{10.5, 20.25, 30.75}, nil
+	}
+
+	err := collector.CollectSystem()
+	require.NoError(t, err)
+
+	metrics := collector.GetMetricsForReport()
+	metricsMap := make(map[string]models.Metrics, len(metrics))
+	for _, metric := range metrics {
+		metricsMap[metric.ID] = metric
+	}
+
+	require.Contains(t, metricsMap, "TotalMemory")
+	require.Contains(t, metricsMap, "FreeMemory")
+	require.Contains(t, metricsMap, "CPUutilization1")
+	require.Contains(t, metricsMap, "CPUutilization2")
+	require.Contains(t, metricsMap, "CPUutilization3")
+
+	assert.Equal(t, 4096.0, *metricsMap["TotalMemory"].Value)
+	assert.Equal(t, 1024.0, *metricsMap["FreeMemory"].Value)
+	assert.Equal(t, 10.5, *metricsMap["CPUutilization1"].Value)
+	assert.Equal(t, 20.25, *metricsMap["CPUutilization2"].Value)
+	assert.Equal(t, 30.75, *metricsMap["CPUutilization3"].Value)
+}
+
+func TestMetricsCollector_CollectSystem_UpdatesCPUSet(t *testing.T) {
+	collector := NewMetricsCollector()
+	collector.readVirtualMemory = func() (*virtualMemoryStat, error) {
+		return &virtualMemoryStat{Total: 1, Free: 1}, nil
+	}
+	collector.readCPUPercent = func() ([]float64, error) {
+		return []float64{1, 2, 3}, nil
+	}
+
+	require.NoError(t, collector.CollectSystem())
+
+	collector.readCPUPercent = func() ([]float64, error) {
+		return []float64{4, 5}, nil
+	}
+	require.NoError(t, collector.CollectSystem())
+
+	metrics := collector.GetMetricsForReport()
+	metricsMap := make(map[string]models.Metrics, len(metrics))
+	for _, metric := range metrics {
+		metricsMap[metric.ID] = metric
+	}
+
+	require.Contains(t, metricsMap, "CPUutilization1")
+	require.Contains(t, metricsMap, "CPUutilization2")
+	assert.NotContains(t, metricsMap, "CPUutilization3")
+	assert.Equal(t, 4.0, *metricsMap["CPUutilization1"].Value)
+	assert.Equal(t, 5.0, *metricsMap["CPUutilization2"].Value)
+}
+
+func TestMetricsCollector_CollectSystem_ReturnsJoinedError(t *testing.T) {
+	collector := NewMetricsCollector()
+	memErr := errors.New("memory failed")
+	cpuErr := errors.New("cpu failed")
+	collector.readVirtualMemory = func() (*virtualMemoryStat, error) {
+		return nil, memErr
+	}
+	collector.readCPUPercent = func() ([]float64, error) {
+		return nil, cpuErr
+	}
+
+	err := collector.CollectSystem()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, memErr)
+	assert.ErrorIs(t, err, cpuErr)
+}
+
+func TestMetricsCollector_CollectSystem_DefaultCPUCount(t *testing.T) {
+	collector := NewMetricsCollector()
+
+	err := collector.CollectSystem()
+	if err != nil {
+		t.Skipf("gopsutil is unavailable in current environment: %v", err)
+	}
+
+	metrics := collector.GetMetricsForReport()
+	cpuMetricCount := 0
+	for _, metric := range metrics {
+		if len(metric.ID) >= len("CPUutilization") && metric.ID[:len("CPUutilization")] == "CPUutilization" {
+			cpuMetricCount++
+		}
+	}
+
+	assert.Equal(t, runtime.NumCPU(), cpuMetricCount)
 }

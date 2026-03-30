@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -68,13 +69,20 @@ func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 
 // метод отправки одной метрики
 func (c *MetricsClient) SendMetric(metric models.Metrics) error {
+	return c.SendMetricWithContext(context.Background(), metric)
+}
+
+func (c *MetricsClient) SendMetricWithContext(ctx context.Context, metric models.Metrics) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	url, err := c.getMetricURL(metric)
 	if err != nil {
 		return fmt.Errorf("failed to get metric URL: %w", err)
 	}
 
-	return c.withRetry(func() error {
-		req := c.client.R()
+	return c.withRetry(ctx, func() error {
+		req := c.client.R().SetContext(ctx)
 		resp, err := req.SetHeader("Content-Type", "text/plain").Post(url)
 		if err != nil {
 			return fmt.Errorf("failed to send request: %w", err)
@@ -100,11 +108,22 @@ func (c *MetricsClient) SendMetrics(metrics []models.Metrics) error {
 
 // Метод получения значения метрики
 func (c *MetricsClient) GetMetric(metricType models.MetricType, metricName string) (string, error) {
+	return c.GetMetricWithContext(context.Background(), metricType, metricName)
+}
+
+func (c *MetricsClient) GetMetricWithContext(
+	ctx context.Context,
+	metricType models.MetricType,
+	metricName string,
+) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	url := fmt.Sprintf("%s/value/%s/%s", c.config.ServerAddress, metricType, metricName)
 
 	var body string
-	err := c.withRetry(func() error {
-		req := c.client.R()
+	err := c.withRetry(ctx, func() error {
+		req := c.client.R().SetContext(ctx)
 		resp, err := req.Get(url)
 		if err != nil {
 			return fmt.Errorf("failed to get metric: %w", err)

@@ -9,8 +9,11 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/retry"
 )
 
-func (c *MetricsClient) withRetry(op func() error) error {
-	return retry.Do(context.Background(), nil, isRetryableRequestError, op)
+func (c *MetricsClient) withRetry(ctx context.Context, op func() error) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return retry.Do(ctx, nil, isRetryableRequestError, op)
 }
 
 func isRetryableRequestError(err error) bool {
