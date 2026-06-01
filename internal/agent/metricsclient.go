@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
@@ -34,6 +36,11 @@ func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 	}
 }
 
+// joinURL объединяет базовый URL с сегментами пути, корректно обрабатывая двойной слэш схемы.
+func joinURL(base string, parts ...string) string {
+	return strings.TrimRight(base, "/") + "/" + path.Join(parts...)
+}
+
 // Вспомогательный метод установки заголовка подписи
 func (c *MetricsClient) setHashHeader(r *resty.Request, body []byte) *resty.Request {
 	if c.signer == nil {
@@ -51,15 +58,15 @@ func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 		if metric.Value == nil {
 			return "", fmt.Errorf("gauge metric value is nil")
 		}
-		url = fmt.Sprintf("%s/update/%s/%s/%v",
-			c.config.ServerAddress, metric.MType, metric.ID, *metric.Value)
+		url = joinURL(c.config.ServerAddress, "update",
+			string(metric.MType), metric.ID, fmt.Sprintf("%v", *metric.Value))
 
 	case models.Counter:
 		if metric.Delta == nil {
 			return "", fmt.Errorf("counter metric delta is nil")
 		}
-		url = fmt.Sprintf("%s/update/%s/%s/%v",
-			c.config.ServerAddress, metric.MType, metric.ID, *metric.Delta)
+		url = joinURL(c.config.ServerAddress, "update",
+			string(metric.MType), metric.ID, fmt.Sprintf("%v", *metric.Delta))
 
 	default:
 		return "", fmt.Errorf("unknown metric type: %s", metric.MType)
@@ -119,7 +126,7 @@ func (c *MetricsClient) GetMetricWithContext(
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	url := fmt.Sprintf("%s/value/%s/%s", c.config.ServerAddress, metricType, metricName)
+	url := joinURL(c.config.ServerAddress, "value", string(metricType), metricName)
 
 	var body string
 	err := c.withRetry(ctx, func() error {
