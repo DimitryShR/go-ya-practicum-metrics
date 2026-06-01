@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,13 +13,18 @@ import (
 
 // метод отправки одной метрики
 func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
+	return c.SendMetricJSONWithContext(context.Background(), metric)
+}
 
+func (c *MetricsClient) SendMetricJSONWithContext(ctx context.Context, metric models.Metrics) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var buf bytes.Buffer
 
 	if err := json.NewEncoder(&buf).Encode(metric); err != nil {
 		return fmt.Errorf("failed to encode metric to JSON: %w", err)
 	}
-
 	compressedBody, err := compress.GzipData(buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("failed to compress request body: %w", err)
@@ -26,8 +32,10 @@ func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 
 	url := fmt.Sprintf("%s/update", c.config.ServerAddress)
 
-	return c.withRetry(func() error {
-		resp, err := c.client.R().
+	return c.withRetry(ctx, func() error {
+		req := c.client.R().SetContext(ctx)
+		c.setHashHeader(req, buf.Bytes())
+		resp, err := req.
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
 			SetBody(compressedBody).
@@ -74,8 +82,10 @@ func (c *MetricsClient) BatchSendMetricsJSON(metrics []models.Metrics) error {
 
 	url := fmt.Sprintf("%s/updates", c.config.ServerAddress)
 
-	return c.withRetry(func() error {
-		resp, err := c.client.R().
+	return c.withRetry(context.Background(), func() error {
+		req := c.client.R()
+		c.setHashHeader(req, buf.Bytes())
+		resp, err := req.
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
 			SetBody(compressedBody).

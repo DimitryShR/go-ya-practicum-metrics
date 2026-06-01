@@ -1,27 +1,52 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 	"github.com/go-resty/resty/v2"
 )
 
 type MetricsClient struct {
 	config *config.AgentConfig
 	client *resty.Client
+	signer *sign.Signer
 }
 
 func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 	restyClient := resty.New()
 	restyClient.SetTimeout(5 * time.Second)
+
+	var signer *sign.Signer
+	if cfg.SignKey != "" {
+		signer = sign.NewSigner(cfg.SignKey)
+	}
+
 	return &MetricsClient{
 		config: cfg,
 		client: restyClient,
+		signer: signer,
 	}
+}
+
+// joinURL объединяет базовый URL с сегментами пути, корректно обрабатывая двойной слэш схемы.
+func joinURL(base string, parts ...string) string {
+	return strings.TrimRight(base, "/") + "/" + path.Join(parts...)
+}
+
+// Вспомогательный метод установки заголовка подписи
+func (c *MetricsClient) setHashHeader(r *resty.Request, body []byte) *resty.Request {
+	if c.signer == nil {
+		return r
+	}
+	return r.SetHeader("HashSHA256", c.signer.Sign(body))
 }
 
 // Вспомогательный метод извлечения метрик из URL
@@ -33,15 +58,15 @@ func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 		if metric.Value == nil {
 			return "", fmt.Errorf("gauge metric value is nil")
 		}
-		url = fmt.Sprintf("%s/update/%s/%s/%v",
-			c.config.ServerAddress, metric.MType, metric.ID, *metric.Value)
+		url = joinURL(c.config.ServerAddress, "update",
+			string(metric.MType), metric.ID, fmt.Sprintf("%v", *metric.Value))
 
 	case models.Counter:
 		if metric.Delta == nil {
 			return "", fmt.Errorf("counter metric delta is nil")
 		}
-		url = fmt.Sprintf("%s/update/%s/%s/%v",
-			c.config.ServerAddress, metric.MType, metric.ID, *metric.Delta)
+		url = joinURL(c.config.ServerAddress, "update",
+			string(metric.MType), metric.ID, fmt.Sprintf("%v", *metric.Delta))
 
 	default:
 		return "", fmt.Errorf("unknown metric type: %s", metric.MType)
@@ -51,13 +76,21 @@ func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 
 // метод отправки одной метрики
 func (c *MetricsClient) SendMetric(metric models.Metrics) error {
+	return c.SendMetricWithContext(context.Background(), metric)
+}
+
+func (c *MetricsClient) SendMetricWithContext(ctx context.Context, metric models.Metrics) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	url, err := c.getMetricURL(metric)
 	if err != nil {
 		return fmt.Errorf("failed to get metric URL: %w", err)
 	}
 
-	return c.withRetry(func() error {
-		resp, err := c.client.R().SetHeader("Content-Type", "text/plain").Post(url)
+	return c.withRetry(ctx, func() error {
+		req := c.client.R().SetContext(ctx)
+		resp, err := req.SetHeader("Content-Type", "text/plain").Post(url)
 		if err != nil {
 			return fmt.Errorf("failed to send request: %w", err)
 		}
@@ -82,11 +115,23 @@ func (c *MetricsClient) SendMetrics(metrics []models.Metrics) error {
 
 // Метод получения значения метрики
 func (c *MetricsClient) GetMetric(metricType models.MetricType, metricName string) (string, error) {
-	url := fmt.Sprintf("%s/value/%s/%s", c.config.ServerAddress, metricType, metricName)
+	return c.GetMetricWithContext(context.Background(), metricType, metricName)
+}
+
+func (c *MetricsClient) GetMetricWithContext(
+	ctx context.Context,
+	metricType models.MetricType,
+	metricName string,
+) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	url := joinURL(c.config.ServerAddress, "value", string(metricType), metricName)
 
 	var body string
-	err := c.withRetry(func() error {
-		resp, err := c.client.R().Get(url)
+	err := c.withRetry(ctx, func() error {
+		req := c.client.R().SetContext(ctx)
+		resp, err := req.Get(url)
 		if err != nil {
 			return fmt.Errorf("failed to get metric: %w", err)
 		}

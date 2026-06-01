@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ type AgentConfig struct {
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 	ServerAddress  string
+	SignKey        string
+	RateLimit      int
 }
 
 // Создаем новый экземпляр конфигурации агента, загружая значения конфигурации
@@ -24,6 +27,8 @@ func NewAgentConfig() *AgentConfig {
 		ServerAddress:  "http://localhost:8080",
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
+		SignKey:        "",
+		RateLimit:      1,
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -46,6 +51,7 @@ func NewTestAgentConfig(serverAddress string) *AgentConfig {
 		ServerAddress:  serverAddress,
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
+		RateLimit:      1,
 	}
 }
 
@@ -62,6 +68,8 @@ func (ac *AgentConfig) envParse() error {
 		PollInterval   *float64 `env:"POLL_INTERVAL"`
 		ReportInterval *float64 `env:"REPORT_INTERVAL"`
 		ServerAddress  *string  `env:"ADDRESS"`
+		SignKey        *string  `env:"KEY"`
+		RateLimit      *int     `env:"RATE_LIMIT"`
 	}{}
 	err := env.Parse(&tmpCfg)
 	if err != nil {
@@ -77,30 +85,46 @@ func (ac *AgentConfig) envParse() error {
 	if tmpCfg.ServerAddress != nil {
 		ac.ServerAddress = *tmpCfg.ServerAddress
 	}
+	if tmpCfg.SignKey != nil {
+		ac.SignKey = *tmpCfg.SignKey
+	}
+	if tmpCfg.RateLimit != nil {
+		ac.RateLimit = *tmpCfg.RateLimit
+	}
 	return nil
 }
 
 // Парсим флаги командной строки и вносим изменения в структуру конфигурации
 func (ac *AgentConfig) parseFlags() error {
-	// Флаг для адреса сервера
-	flag.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	// Подавляем вывод
+	fs.SetOutput(io.Discard)
 
+	return ac.parseFlagSet(fs, os.Args[1:])
+}
+
+func (ac *AgentConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
+	// Флаг для адреса сервера
+	fs.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
+	fs.StringVar(&ac.SignKey, "k", ac.SignKey, "Key for sign data")
 	// Флаги для интервалов времени
 	var pollIntervalSec, reportIntervalSec float64
-	flag.Float64Var(&pollIntervalSec, "p", 2.0, "Poll interval in seconds")
-	flag.Float64Var(&reportIntervalSec, "r", 10.0, "Report interval in seconds")
+	fs.Float64Var(&pollIntervalSec, "p", ac.PollInterval.Seconds(), "Poll interval in seconds")
+	fs.Float64Var(&reportIntervalSec, "r", ac.ReportInterval.Seconds(), "Report interval in seconds")
+	fs.IntVar(&ac.RateLimit, "l", ac.RateLimit, "Maximum number of concurrent outbound requests")
 
 	// Парсим флаги
-	flag.Parse()
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	// Конвертируем в time.Duration
 	ac.PollInterval = time.Duration(pollIntervalSec * float64(time.Second))
 	ac.ReportInterval = time.Duration(reportIntervalSec * float64(time.Second))
 
 	// Проверяем, что не переданы неизвестные флаги
-	if flag.NArg() > 0 {
-		flag.Usage()
-		return fmt.Errorf("unknown flags or arguments: %v", flag.Args())
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unknown flags or arguments: %v", fs.Args())
 	}
 	return nil
 }
@@ -117,9 +141,15 @@ func (ac *AgentConfig) validate() error {
 	if ac.ServerAddress == "" {
 		errs = append(errs, fmt.Errorf("server address must be set, got empty value"))
 	}
+	if ac.RateLimit <= 0 {
+		errs = append(errs, fmt.Errorf("rate limit must be positive, got: %d", ac.RateLimit))
+	}
 	return errors.Join(errs...)
 }
 
 func (ac *AgentConfig) String() string {
-	return fmt.Sprintf("Server address: %s; Poll interval: %s; Report interval: %s", ac.ServerAddress, ac.PollInterval, ac.ReportInterval)
+	return fmt.Sprintf(
+		"Server address: %s; Poll interval: %s; Report interval: %s; Sign key: %s; Rate limit: %d",
+		ac.ServerAddress, ac.PollInterval, ac.ReportInterval, ac.SignKey, ac.RateLimit,
+	)
 }

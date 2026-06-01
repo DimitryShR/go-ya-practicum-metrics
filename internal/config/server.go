@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -19,6 +20,7 @@ type ServerConfig struct {
 	Restore         bool          // `env:"RESTORE"`
 	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 	DBMigrateDsn    db.PgConn     // `env:"DATABASE_MIGRATE_DSN"`
+	SignKey         string        // `env:"KEY"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -32,6 +34,7 @@ func NewServerConfig() *ServerConfig {
 		Restore:         true,
 		DBDsn:           db.PgConn{},
 		DBMigrateDsn:    db.PgConn{},
+		SignKey:         "",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -49,23 +52,35 @@ func NewServerConfig() *ServerConfig {
 }
 
 func (sc *ServerConfig) parseFlags() error {
-	flag.StringVar(&sc.Address, "a", sc.Address, "Server address")
-	flag.StringVar(&sc.LogLevel, "loglvl", sc.LogLevel, "Log level")
-	flag.StringVar(&sc.FileStoragePath, "f", sc.FileStoragePath, "File storage path")
-	flag.BoolVar(&sc.Restore, "r", sc.Restore, "Restore from file on startup")
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	// Подавляем вывод
+	fs.SetOutput(io.Discard)
+
+	return sc.parseFlagSet(fs, os.Args[1:])
+}
+
+func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
+	fs.StringVar(&sc.Address, "a", sc.Address, "Server address")
+	fs.StringVar(&sc.LogLevel, "loglvl", sc.LogLevel, "Log level")
+	fs.StringVar(&sc.FileStoragePath, "f", sc.FileStoragePath, "File storage path")
+	fs.BoolVar(&sc.Restore, "r", sc.Restore, "Restore from file on startup")
 
 	var storeIntervalSec float64
-	flag.Float64Var(&storeIntervalSec, "i", sc.StoreInterval.Seconds(), "Store interval in seconds")
+	fs.Float64Var(&storeIntervalSec, "i", sc.StoreInterval.Seconds(), "Store interval in seconds")
 
 	// Подключение к БД через флаг -d для основного подключения
 	var dbDsnStr string
-	flag.StringVar(&dbDsnStr, "d", "", "DSN for conn to db")
+	fs.StringVar(&dbDsnStr, "d", "", "DSN for conn to db")
 
 	// Подключение к БД для миграции через флаг -m
 	var dbMigrateDsnStr string
-	flag.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
+	fs.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
 
-	flag.Parse()
+	fs.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	// Конвертируем в time.Duration
 	sc.StoreInterval = time.Duration(storeIntervalSec * float64(time.Second))
@@ -89,9 +104,8 @@ func (sc *ServerConfig) parseFlags() error {
 	}
 
 	// Проверяем, что не переданы неизвестные флаги
-	if flag.NArg() > 0 {
-		flag.Usage()
-		return fmt.Errorf("unknown flags or arguments: %v", flag.Args())
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unknown flags or arguments: %v", fs.Args())
 	}
 	return nil
 
@@ -106,6 +120,7 @@ func (sc *ServerConfig) envParse() error {
 		Restore         *bool    `env:"RESTORE"`
 		DBDsn           *string  `env:"DATABASE_DSN"`
 		DBMigrateDsn    *string  `env:"DATABASE_MIGRATE_DSN"`
+		SignKey         *string  `env:"KEY"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -145,6 +160,9 @@ func (sc *ServerConfig) envParse() error {
 		if conn != nil {
 			sc.DBMigrateDsn = *conn
 		}
+	}
+	if tmpCfg.SignKey != nil {
+		sc.SignKey = *tmpCfg.SignKey
 	}
 
 	return nil

@@ -23,6 +23,10 @@ func TestNewMetricsClient(t *testing.T) {
 	if client.config != defaultCfg {
 		t.Error("Expected config to be set")
 	}
+
+	if client.signer != nil {
+		t.Error("Expected signer to be nil when sign key is empty")
+	}
 }
 
 func TestMetricsClient_getMetricURL(t *testing.T) {
