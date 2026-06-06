@@ -5,7 +5,27 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"sync"
 )
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
+var gzipWriterPool = sync.Pool{
+	New: func() interface{} {
+		return gzip.NewWriter(nil)
+	},
+}
+
+var gzipReaderPool = sync.Pool{
+	New: func() interface{} {
+		r, _ := gzip.NewReader(nil)
+		return r
+	},
+}
 
 // Реализуем интерфейс http.ResponseWriter для сжатия данных, отправляемых клиенту
 type compressWriter struct {
@@ -14,9 +34,11 @@ type compressWriter struct {
 }
 
 func NewCompressWriter(w http.ResponseWriter) *compressWriter {
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(w)
 	return &compressWriter{
 		w:  w,
-		zw: gzip.NewWriter(w),
+		zw: zw,
 	}
 }
 
@@ -37,7 +59,9 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 
 // Close закрывает gzip.Writer и досылает все данные из буфера.
 func (c *compressWriter) Close() error {
-	return c.zw.Close()
+	err := c.zw.Close()
+	gzipWriterPool.Put(c.zw)
+	return err
 }
 
 // Реализуем интерфейс io.ReadCloser для декомпрессии данных, получаемых от клиента
@@ -47,11 +71,11 @@ type compressReader struct {
 }
 
 func NewCompressReader(r io.ReadCloser) (*compressReader, error) {
-	zr, err := gzip.NewReader(r)
-	if err != nil {
+	zr := gzipReaderPool.Get().(*gzip.Reader)
+	if err := zr.Reset(r); err != nil {
+		gzipReaderPool.Put(zr)
 		return nil, err
 	}
-
 	return &compressReader{
 		r:  r,
 		zr: zr,
@@ -63,25 +87,41 @@ func (c compressReader) Read(p []byte) (n int, err error) {
 }
 
 func (c *compressReader) Close() error {
-	if err := c.r.Close(); err != nil {
-		return err
+	err := c.zr.Close()
+	gzipReaderPool.Put(c.zr)
+	if err1 := c.r.Close(); err1 != nil {
+		return err1
 	}
-	return c.zr.Close()
+	return err
 }
 
 // GzipData сжимает входной срез данных в формате gzip.
 func GzipData(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
+	// Ранее на каждый вызов создавался новый буфер, теперь переиспользуется
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+
+	// Ранее на каждый вызов создавался новый gzip.Writer, теперь переиспользуется
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(buf)
 
 	if _, err := zw.Write(data); err != nil {
 		_ = zw.Close()
+		gzipWriterPool.Put(zw)
+		bufPool.Put(buf)
 		return nil, err
 	}
 
 	if err := zw.Close(); err != nil {
+		gzipWriterPool.Put(zw)
+		bufPool.Put(buf)
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	// Копируем результат, чтобы вернуть buf в пул
+	out := make([]byte, buf.Len())
+	copy(out, buf.Bytes())
+	gzipWriterPool.Put(zw)
+	bufPool.Put(buf)
+	return out, nil
 }

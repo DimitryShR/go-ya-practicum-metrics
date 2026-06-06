@@ -138,7 +138,8 @@ func (c *MetricsCollector) GetMetricsForReport() []models.Metrics {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var metrics []models.Metrics
+	// Предварительное выделение слайса необходимой ёмкости
+	metrics := make([]models.Metrics, 0, len(c.metrics)+1)
 
 	// Добавляем все gauge метрики
 	for name, value := range c.metrics {

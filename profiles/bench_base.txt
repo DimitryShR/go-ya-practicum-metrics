@@ -1,0 +1,38 @@
+goos: linux
+goarch: amd64
+pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/agent
+cpu: Intel Xeon Processor (Cascadelake)
+BenchmarkMetricsCollector_GetMetricsForReport-2   	  155433	      7433 ns/op	    4784 B/op	      38 allocs/op
+BenchmarkMetricsCollector_CollectAndReport-2      	   45206	     22498 ns/op	   10936 B/op	      39 allocs/op
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/agent	2.614s
+2026/06/07 00:21:18.687432 WARN RESTY Post "http://localhost:1": context canceled, Attempt 1
+2026/06/07 00:21:18.687832 ERROR RESTY Post "http://localhost:1": context canceled
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/audit	0.106s
+goos: linux
+goarch: amd64
+pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/compress
+cpu: Intel Xeon Processor (Cascadelake)
+BenchmarkGzipData_SmallPayload-2   	   10000	    247168 ns/op	  814096 B/op	      20 allocs/op
+BenchmarkGzipData_LargePayload-2   	    5364	    231347 ns/op	  814736 B/op	      21 allocs/op
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/compress	3.765s
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/config	0.006s
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/config/db	[no test files]
+goos: linux
+goarch: amd64
+pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/handler
+cpu: Intel Xeon Processor (Cascadelake)
+BenchmarkGetAllMetrics-2   	    9048	    158684 ns/op	   40647 B/op	     752 allocs/op
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/handler	2.227s
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/logger	[no test files]
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware	[no test files]
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/models	[no test files]
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/repository	[no test files]
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/retry	[no test files]
+?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/service	[no test files]
+PASS
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/sign	0.005s

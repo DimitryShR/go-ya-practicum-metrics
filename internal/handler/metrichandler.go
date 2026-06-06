@@ -16,6 +16,36 @@ import (
 	"go.uber.org/zap"
 )
 
+// Создаем шаблон один раз (при инициализации приложения)
+var metricsTemplate = func() *template.Template {
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Metrics</h1>
+
+    {{range $name, $value := .Gauges}}
+    <div>{{$name}}: {{printf "%.2f" $value}}</div>
+    {{end}}
+
+    {{range $name, $value := .Counters}}
+    <div>{{$name}}: {{$value}}</div>
+    {{end}}
+</body>
+</html>
+`
+	t, err := template.New("metrics").Funcs(funcMap).Parse(tmpl)
+	if err != nil {
+		panic("failed to parse metrics template: " + err.Error())
+	}
+	return t
+}()
+
 type MetricHandler struct {
 	service   service.MetricService
 	publisher audit.Publisher
@@ -136,37 +166,6 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// HTML шаблон
-	tmpl := `
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Metrics</h1>
-
-    {{range $name, $value := .Gauges}}
-    <div>{{$name}}: {{printf "%.2f" $value}}</div>
-    {{end}}
-
-    {{range $name, $value := .Counters}}
-    <div>{{$name}}: {{$value}}</div>
-    {{end}}
-</body>
-</html>
-`
-
-	// Функции для шаблона
-	funcMap := template.FuncMap{
-		"add": func(a, b int) int {
-			return a + b
-		},
-	}
-
-	t, err := template.New("metrics").Funcs(funcMap).Parse(tmpl)
-	if err != nil {
-		http.Error(w, "Failed to render template", http.StatusInternalServerError)
-		return
-	}
-
 	data := struct {
 		Gauges   map[string]float64
 		Counters map[string]int64
@@ -177,7 +176,7 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	if err := t.Execute(w, data); err != nil {
+	if err := metricsTemplate.Execute(w, data); err != nil {
 		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
 	}
 }
