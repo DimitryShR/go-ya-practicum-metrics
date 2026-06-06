@@ -22,8 +22,7 @@ var gzipWriterPool = sync.Pool{
 
 var gzipReaderPool = sync.Pool{
 	New: func() interface{} {
-		r, _ := gzip.NewReader(nil)
-		return r
+		return new(gzip.Reader)
 	},
 }
 

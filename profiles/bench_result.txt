@@ -2,32 +2,32 @@ goos: linux
 goarch: amd64
 pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/agent
 cpu: Intel Xeon Processor (Cascadelake)
-BenchmarkMetricsCollector_GetMetricsForReport-2   	  224356	      5852 ns/op	    2416 B/op	      33 allocs/op
-BenchmarkMetricsCollector_CollectAndReport-2      	   62991	     18697 ns/op	    8568 B/op	      34 allocs/op
+BenchmarkMetricsCollector_GetMetricsForReport-2   	  181248	      5592 ns/op	    2416 B/op	      33 allocs/op
+BenchmarkMetricsCollector_CollectAndReport-2      	   66784	     17251 ns/op	    8568 B/op	      34 allocs/op
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/agent	2.810s
-2026/06/07 00:22:36.350491 WARN RESTY Post "http://localhost:1": context canceled, Attempt 1
-2026/06/07 00:22:36.350572 ERROR RESTY Post "http://localhost:1": context canceled
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/agent	2.502s
+2026/06/07 00:44:37.292073 WARN RESTY Post "http://localhost:1": context canceled, Attempt 1
+2026/06/07 00:44:37.292158 ERROR RESTY Post "http://localhost:1": context canceled
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/audit	0.099s
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/audit	0.093s
 goos: linux
 goarch: amd64
 pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/compress
 cpu: Intel Xeon Processor (Cascadelake)
-BenchmarkGzipData_SmallPayload-2   	   44799	     22329 ns/op	      80 B/op	       1 allocs/op
-BenchmarkGzipData_LargePayload-2   	   27230	     43216 ns/op	     448 B/op	       1 allocs/op
+BenchmarkGzipData_SmallPayload-2   	   49016	     20771 ns/op	      80 B/op	       1 allocs/op
+BenchmarkGzipData_LargePayload-2   	   25903	     48250 ns/op	     479 B/op	       1 allocs/op
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/compress	2.910s
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/compress	3.001s
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/config	0.005s
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/config	0.007s
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/config/db	[no test files]
 goos: linux
 goarch: amd64
 pkg: github.com/DimitryShR/go-ya-practicum-metrics/internal/handler
 cpu: Intel Xeon Processor (Cascadelake)
-BenchmarkGetAllMetrics-2   	   12177	    104071 ns/op	   22372 B/op	     555 allocs/op
+BenchmarkGetAllMetrics-2   	   13920	    100073 ns/op	   22372 B/op	     555 allocs/op
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/handler	2.278s
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/handler	2.279s
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/logger	[no test files]
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware	[no test files]
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/models	[no test files]
@@ -35,4 +35,4 @@ ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/handler	2.278s
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/retry	[no test files]
 ?   	github.com/DimitryShR/go-ya-practicum-metrics/internal/service	[no test files]
 PASS
-ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/sign	0.005s
+ok  	github.com/DimitryShR/go-ya-practicum-metrics/internal/sign	0.007s
