@@ -9,8 +9,11 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
@@ -187,7 +190,13 @@ func newRouter(
 	r.Get("/", metricHandler.GetAllMetrics)
 	r.Get("/ping", pingHandler.Ping)
 
-	return r
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/debug/pprof") {
+			http.DefaultServeMux.ServeHTTP(w, req)
+			return
+		}
+		r.ServeHTTP(w, req)
+	})
 }
 
 func getMode(cfg *config.ServerConfig) storageMode {
