@@ -16,6 +16,11 @@ cmd/agent/main
 cmd/agent/agent
 cmd/server/main
 cmd/server/server
+cmd/audit/main
+cmd/audit/audit
+
+# Audit logs
+*.log
 
 # Dependency directories (remove the comment below to include it)
 vendor/

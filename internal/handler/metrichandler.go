@@ -3,9 +3,12 @@ package handler
 import (
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
@@ -14,11 +17,24 @@ import (
 )
 
 type MetricHandler struct {
-	service service.MetricService
+	service   service.MetricService
+	publisher audit.Publisher
 }
 
-func NewMetricHandler(service service.MetricService) *MetricHandler {
-	return &MetricHandler{service: service}
+func NewMetricHandler(service service.MetricService, publisher audit.Publisher) *MetricHandler {
+	return &MetricHandler{
+		service:   service,
+		publisher: publisher,
+	}
+}
+
+// extractIPAddress извлекает IP-адрес из RemoteAddr запроса.
+func extractIPAddress(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // UpdateMetric - обработчик POST /update/<type>/<name>/<value>
@@ -38,6 +54,13 @@ func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Requ
 	if err := mh.service.UpdateMetric(r.Context(), metric); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if mh.publisher != nil {
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{metric.ID},
+			IPAddress: extractIPAddress(r),
+		})
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)

@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
-	"database/sql"
-
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
@@ -64,6 +66,11 @@ func run() error {
 	mode := getMode(cfg)
 	logger.Log.Info("Storage mode selected", zap.String("mode", string(mode)))
 
+	// Контекст для периодической записи метрик в файл.
+	// Отменяется при shutdown, чтобы корректно остановить фоновую горутину.
+	storageCtx, storageCancel := context.WithCancel(context.Background())
+	defer storageCancel()
+
 	switch mode {
 	case modePostgres:
 		pgStorage, err := initPostgresStorage(cfg, &db)
@@ -75,7 +82,7 @@ func run() error {
 		}
 		storage = pgStorage
 	case modeFile:
-		fileStorage, err := initFileStorage(cfg)
+		fileStorage, err := initFileStorage(storageCtx, cfg)
 		if err != nil {
 			return fmt.Errorf("initialize file storage: %w", err)
 		}
@@ -85,12 +92,78 @@ func run() error {
 	}
 
 	metricService := service.NewMetricService(storage)
-	metricHandler := handler.NewMetricHandler(metricService)
+
+	auditCtx, auditCancel := context.WithCancel(context.Background())
+
+	auditPublisher := audit.NewAuditPublisher()
+
+	if cfg.AuditFile != "" {
+		fileAuditor, err := audit.NewFileAuditor(auditCtx, cfg.AuditFile)
+		if err != nil {
+			defer auditCancel()
+			return fmt.Errorf("initialize file auditor: %w", err)
+		}
+		// Дожидаемся сохранения всех данных в файл
+		defer fileAuditor.Wait()
+		auditPublisher.Register(fileAuditor)
+		logger.Log.Info("Audit file sink enabled", zap.String("path", cfg.AuditFile))
+	}
+	if cfg.AuditURL != "" {
+		auditPublisher.Register(audit.NewRemoteAuditor(auditCtx, cfg.AuditURL, 10*time.Second))
+		logger.Log.Info("Audit remote sink enabled", zap.String("url", cfg.AuditURL))
+	}
+
+	// Отменяем контекст auditCtx, который обеспечивает корректное завершение аудиторов
+	defer auditCancel()
+	// Останавливаем рассылку событий и после отменяем контекст auditCtx
+	defer auditPublisher.Shutdown()
+
+	metricHandler := handler.NewMetricHandler(metricService, auditPublisher)
 
 	pingHandler := handler.NewPingHandler(db)
 	router := newRouter(metricHandler, pingHandler, signer)
 
-	return http.ListenAndServe(cfg.Address, router)
+	return runServer(cfg.Address, router)
+}
+
+// runServer запускает HTTP-сервер с таймаутами и обеспечивает graceful shutdown
+// при получении сигналов SIGINT или SIGTERM.
+func runServer(addr string, handler http.Handler) error {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Запуск сервера в горутине. ListenAndServe возвращает http.ErrServerClosed
+	// при вызове Shutdown, что является ожидаемым поведением при graceful shutdown.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatal("Server failed", zap.Error(err))
+		}
+	}()
+
+	logger.Log.Info("Server started", zap.String("address", addr))
+
+	// Ожидание сигнала завершения (SIGINT или SIGTERM)
+	sigCtx, sigStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer sigStop()
+	<-sigCtx.Done()
+	logger.Log.Info("Received signal, shutting down server...")
+
+	// Даём серверу 30 секунд на завершение активных запросов
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Log.Error("Server forced to shutdown", zap.Error(err))
+		return err
+	}
+
+	logger.Log.Info("Server stopped gracefully")
+	return nil
 }
 
 func newRouter(
@@ -176,9 +249,8 @@ func runMigrations(migrateDSN string) error {
 	return nil
 }
 
-func initFileStorage(cfg *config.ServerConfig) (service.Storage, error) {
+func initFileStorage(ctx context.Context, cfg *config.ServerConfig) (service.Storage, error) {
 	memStorage := repository.NewMemStorage()
-	ctx := context.Background()
 
 	if cfg.Restore {
 		if ok, err := memStorage.LoadFromFile(ctx, cfg.FileStoragePath); err != nil {
@@ -198,9 +270,14 @@ func initFileStorage(cfg *config.ServerConfig) (service.Storage, error) {
 		go func(ctx context.Context, path string, interval time.Duration) {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
-			for range ticker.C {
-				if err := memStorage.SaveToFile(ctx, path); err != nil {
-					logger.Log.Error("Cannot save metrics to file", zap.Error(err), zap.String("file", path))
+			for {
+				select {
+				case <-ticker.C:
+					if err := memStorage.SaveToFile(ctx, path); err != nil {
+						logger.Log.Error("Cannot save metrics to file", zap.Error(err), zap.String("file", path))
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}(ctx, cfg.FileStoragePath, cfg.StoreInterval)
