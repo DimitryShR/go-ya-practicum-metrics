@@ -8,6 +8,9 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 )
 
+// SignMiddleware — middleware для проверки HMAC-SHA256 подписи запросов и подписи ответов.
+// Если signer равен nil, middleware пропускает запрос без проверки.
+// Проверяет заголовок HashSHA256 в запросе и добавляет подпись к ответу.
 func SignMiddleware(signer *sign.Signer) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

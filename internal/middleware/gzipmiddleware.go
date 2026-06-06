@@ -1,3 +1,5 @@
+// Package middleware предоставляет HTTP-middleware для обработки запросов:
+// сжатие gzip, логирование, парсинг URL-путей и HMAC-SHA256 подпись.
 package middleware
 
 import (
@@ -7,6 +9,9 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/compress"
 )
 
+// GzipMiddleware — middleware для сжатия ответов и декомпрессии запросов в формате gzip.
+// Если клиент поддерживает gzip (Accept-Encoding), ответ сжимается.
+// Если запрос содержит gzip-данные (Content-Encoding), тело запроса декомпрессируется.
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

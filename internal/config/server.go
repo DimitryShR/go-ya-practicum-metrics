@@ -12,6 +12,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
+// ServerConfig — конфигурация сервера метрик.
 type ServerConfig struct {
 	Address         string        // `env:"ADDRESS"`
 	LogLevel        string        // `env:"LOG_LEVEL"`
@@ -25,8 +26,8 @@ type ServerConfig struct {
 	AuditURL        string        // `env:"AUDIT_URL"`
 }
 
-// Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
-// Приоритет загрузки: переменные окружения > флаги > значения по умолчанию
+// NewServerConfig создаёт конфигурацию сервера, загружая значения из флагов и переменных окружения.
+// Приоритет: env vars > flags > defaults.
 func NewServerConfig() *ServerConfig {
 	cfg := &ServerConfig{
 		Address:         ":8080",
@@ -55,6 +56,7 @@ func NewServerConfig() *ServerConfig {
 	return cfg
 }
 
+// parseFlags парсит флаги командной строки.
 func (sc *ServerConfig) parseFlags() error {
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	// Подавляем вывод
@@ -63,6 +65,7 @@ func (sc *ServerConfig) parseFlags() error {
 	return sc.parseFlagSet(fs, os.Args[1:])
 }
 
+// parseFlagSet парсит набор флагов.
 func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&sc.Address, "a", sc.Address, "Server address")
 	fs.StringVar(&sc.LogLevel, "loglvl", sc.LogLevel, "Log level")
@@ -117,6 +120,7 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 
 }
 
+// envParse загружает конфигурацию из переменных окружения.
 func (sc *ServerConfig) envParse() error {
 	tmpCfg := struct {
 		Address         *string  `env:"ADDRESS"`
@@ -182,6 +186,7 @@ func (sc *ServerConfig) envParse() error {
 	return nil
 }
 
+// validate проверяет корректность конфигурации.
 func (sc *ServerConfig) validate() error {
 	var errs []error
 	if sc.Address == "" {

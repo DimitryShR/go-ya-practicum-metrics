@@ -1,3 +1,5 @@
+// Package repository предоставляет реализации хранилища метрик.
+// Поддерживаются in-memory, файловое и PostgreSQL хранилища.
 package repository
 
 import (
@@ -28,14 +30,18 @@ var (
 	getAllGaugesSQL   = mustSQL("sql/getallgauges.sql")
 )
 
+// PgStorage — PostgreSQL реализация хранилища метрик.
+// Использует prepared statements и retry-логику для обработки временных ошибок соединения.
 type PgStorage struct {
 	db *sql.DB
 }
 
+// NewPgStorage создаёт новое PostgreSQL хранилище метрик.
 func NewPgStorage(db *sql.DB) *PgStorage {
 	return &PgStorage{db: db}
 }
 
+// UpdateCounter обновляет counter-метрику в PostgreSQL с retry.
 func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
 	return ps.withRetry(ctx, func() error {
 		stmt, err := ps.db.PrepareContext(ctx, updateCounterSQL)
@@ -60,6 +66,7 @@ func (ps *PgStorage) UpdateCounter(ctx context.Context, name string, value int64
 	})
 }
 
+// UpdateGauge обновляет gauge-метрику в PostgreSQL с retry.
 func (ps *PgStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
 	return ps.withRetry(ctx, func() error {
 		stmt, err := ps.db.PrepareContext(ctx, updateGaugeSQL)
@@ -116,6 +123,7 @@ func (ps *PgStorage) updateGauges(ctx context.Context, tx *sql.Tx, gauges map[st
 	return nil
 }
 
+// UpdateMetrics выполняет пакетное обновление метрик в транзакции с retry.
 func (ps *PgStorage) UpdateMetrics(ctx context.Context, counters map[string]int64, gauges map[string]float64) error {
 	return ps.withRetry(ctx, func() error {
 		tx, err := ps.db.BeginTx(ctx, nil)
@@ -140,6 +148,7 @@ func (ps *PgStorage) UpdateMetrics(ctx context.Context, counters map[string]int6
 	})
 }
 
+// GetCounter возвращает значение counter-метрики из PostgreSQL с retry.
 func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	var value int64
 	err := ps.withRetry(ctx, func() error {
@@ -151,6 +160,7 @@ func (ps *PgStorage) GetCounter(ctx context.Context, name string) (int64, error)
 	return value, nil
 }
 
+// GetGauge возвращает значение gauge-метрики из PostgreSQL с retry.
 func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	var value float64
 	err := ps.withRetry(ctx, func() error {
@@ -162,6 +172,7 @@ func (ps *PgStorage) GetGauge(ctx context.Context, name string) (float64, error)
 	return value, nil
 }
 
+// GetAllGauges возвращает все gauge-метрики из PostgreSQL с retry.
 func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
 	var gauges map[string]float64
 	err := ps.withRetry(ctx, func() error {
@@ -192,6 +203,7 @@ func (ps *PgStorage) GetAllGauges(ctx context.Context) (map[string]float64, erro
 	return gauges, nil
 }
 
+// GetAllCounters возвращает все counter-метрики из PostgreSQL с retry.
 func (ps *PgStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	var counters map[string]int64
 	err := ps.withRetry(ctx, func() error {
@@ -222,6 +234,7 @@ func (ps *PgStorage) GetAllCounters(ctx context.Context) (map[string]int64, erro
 	return counters, nil
 }
 
+// withRetry выполняет операцию с retry для временных ошибок PostgreSQL.
 func (ps *PgStorage) withRetry(ctx context.Context, op func() error) error {
 	return retry.Do(ctx, nil, isRetryablePostgresError, op)
 }

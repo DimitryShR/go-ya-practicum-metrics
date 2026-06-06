@@ -14,7 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// UpdateMetricHandlerJSON - обработчик POST /update (JSON тело)
+// UpdateMetricHandlerJSON — обработчик POST /update (JSON body).
+// Принимает метрику в JSON-формате, обновляет её и возвращает обновлённую метрику.
 func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -56,7 +57,8 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, metric)
 }
 
-// GetMetricValueJSON - обработчик POST /value/ (JSON Body)
+// GetMetricValueJSON — обработчик POST /value (JSON body).
+// Принимает запрос с ID и типом метрики, возвращает её текущее значение в JSON.
 func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -123,7 +125,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// UpdateMetricsHandlerJSON - обработчик POST /updates (JSON тело)
+// UpdateMetricsHandlerJSON — обработчик POST /updates (JSON body).
+// Принимает массив метрик в JSON-формате и выполняет пакетное обновление.
 func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))

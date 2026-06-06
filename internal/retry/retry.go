@@ -1,3 +1,5 @@
+// Package retry предоставляет механизм повторных попыток выполнения операций
+// с настраиваемыми интервалами задержки и функцией определения повторяемых ошибок.
 package retry
 
 import (
@@ -15,6 +17,7 @@ var DefaultDelays = []time.Duration{
 	5 * time.Second,
 }
 
+// ErrNilContext возвращается, если в функцию Do передан nil-контекст.
 var ErrNilContext = errors.New("nil context")
 
 // Do выполняет операцию с повторами по заданным интервалам.
