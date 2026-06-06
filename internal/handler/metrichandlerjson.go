@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
@@ -43,6 +45,13 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 		logger.Log.Info("cannot update metric", zap.Error(err))
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metric")
 		return
+	}
+	if mh.publisher != nil {
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{metric.ID},
+			IPAddress: extractIPAddress(r),
+		})
 	}
 	writeJSON(w, http.StatusOK, metric)
 }
@@ -143,6 +152,20 @@ func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http
 		logger.Log.Info("cannot update metrics", zap.Error(err))
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metrics")
 		return
+	}
+
+	if mh.publisher != nil {
+		// Формируем список имён метрик для аудита
+		metricNames := make([]string, 0, len(metrics))
+		for _, m := range metrics {
+			metricNames = append(metricNames, m.ID)
+		}
+
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   metricNames,
+			IPAddress: extractIPAddress(r),
+		})
 	}
 	writeJSON(w, http.StatusOK, metrics)
 }

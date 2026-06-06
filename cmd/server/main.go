@@ -11,6 +11,7 @@ import (
 
 	"database/sql"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
@@ -85,7 +86,33 @@ func run() error {
 	}
 
 	metricService := service.NewMetricService(storage)
-	metricHandler := handler.NewMetricHandler(metricService)
+
+	auditCtx, auditCancel := context.WithCancel(context.Background())
+
+	auditPublisher := audit.NewAuditPublisher()
+
+	if cfg.AuditFile != "" {
+		fileAuditor, err := audit.NewFileAuditor(auditCtx, cfg.AuditFile)
+		if err != nil {
+			defer auditCancel()
+			return fmt.Errorf("initialize file auditor: %w", err)
+		}
+		// Дожидаемся сохранения всех данных в файл
+		defer fileAuditor.Wait()
+		auditPublisher.Register(fileAuditor)
+		logger.Log.Info("Audit file sink enabled", zap.String("path", cfg.AuditFile))
+	}
+	if cfg.AuditURL != "" {
+		auditPublisher.Register(audit.NewRemoteAuditor(auditCtx, cfg.AuditURL, 10*time.Second))
+		logger.Log.Info("Audit remote sink enabled", zap.String("url", cfg.AuditURL))
+	}
+
+	// Отменяем контекст auditCtx, который обеспечивает корректное завершение аудиторов
+	defer auditCancel()
+	// Останавливаем рассылку событий и после отменяем контекст auditCtx
+	defer auditPublisher.Shutdown()
+
+	metricHandler := handler.NewMetricHandler(metricService, auditPublisher)
 
 	pingHandler := handler.NewPingHandler(db)
 	router := newRouter(metricHandler, pingHandler, signer)

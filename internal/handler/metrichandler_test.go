@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
@@ -48,6 +49,23 @@ func (m *MockMetricService) GetAllGauges(ctx context.Context) (map[string]float6
 func (m *MockMetricService) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(map[string]int64), args.Error(1)
+}
+
+// MockPublisher — мок для audit.Publisher
+type MockPublisher struct {
+	mock.Mock
+}
+
+func (m *MockPublisher) Register(auditor audit.Auditor) {
+	m.Called(auditor)
+}
+
+func (m *MockPublisher) Deregister(auditor audit.Auditor) {
+	m.Called(auditor)
+}
+
+func (m *MockPublisher) Notify(event audit.AuditEvent) {
+	m.Called(event)
 }
 
 func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
@@ -112,8 +130,12 @@ func TestMetricHandler_UpdateMetricHandler(t *testing.T) {
 			mockService := new(MockMetricService)
 			tt.mockSetup(mockService)
 
+			// Создаем мок publisher'а
+			mockPublisher := new(MockPublisher)
+			mockPublisher.On("Notify", mock.AnythingOfType("audit.AuditEvent")).Return().Maybe()
+
 			// Создаем handler
-			metricHandler := handler.NewMetricHandler(mockService)
+			metricHandler := handler.NewMetricHandler(mockService, mockPublisher)
 
 			// Создаем тестовый HTTP запрос
 			req := httptest.NewRequest(http.MethodPost, "/update/", nil)
@@ -182,7 +204,10 @@ func TestMetricHandler_GetMetricValue_Errors(t *testing.T) {
 			mockService := new(MockMetricService)
 			tt.mockSetup(mockService)
 
-			metricHandler := handler.NewMetricHandler(mockService)
+			// Создаем мок publisher'а
+			mockPublisher := new(MockPublisher)
+
+			metricHandler := handler.NewMetricHandler(mockService, mockPublisher)
 
 			req := httptest.NewRequest(http.MethodGet, "/value/"+tt.metricType+"/testMetric", nil)
 			rr := httptest.NewRecorder()

@@ -21,6 +21,8 @@ type ServerConfig struct {
 	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 	DBMigrateDsn    db.PgConn     // `env:"DATABASE_MIGRATE_DSN"`
 	SignKey         string        // `env:"KEY"`
+	AuditFile       string        // `env:"AUDIT_FILE"`
+	AuditURL        string        // `env:"AUDIT_URL"`
 }
 
 // Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
@@ -35,6 +37,8 @@ func NewServerConfig() *ServerConfig {
 		DBDsn:           db.PgConn{},
 		DBMigrateDsn:    db.PgConn{},
 		SignKey:         "",
+		AuditFile:       "",
+		AuditURL:        "",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -77,6 +81,8 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
 
 	fs.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
+	fs.StringVar(&sc.AuditFile, "audit-file", sc.AuditFile, "Audit log file path")
+	fs.StringVar(&sc.AuditURL, "audit-url", sc.AuditURL, "Audit log remote URL")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -121,6 +127,8 @@ func (sc *ServerConfig) envParse() error {
 		DBDsn           *string  `env:"DATABASE_DSN"`
 		DBMigrateDsn    *string  `env:"DATABASE_MIGRATE_DSN"`
 		SignKey         *string  `env:"KEY"`
+		AuditFile       *string  `env:"AUDIT_FILE"`
+		AuditURL        *string  `env:"AUDIT_URL"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -163,6 +171,12 @@ func (sc *ServerConfig) envParse() error {
 	}
 	if tmpCfg.SignKey != nil {
 		sc.SignKey = *tmpCfg.SignKey
+	}
+	if tmpCfg.AuditFile != nil {
+		sc.AuditFile = *tmpCfg.AuditFile
+	}
+	if tmpCfg.AuditURL != nil {
+		sc.AuditURL = *tmpCfg.AuditURL
 	}
 
 	return nil
