@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,7 @@ func ExampleMetricHandler_GetMetricValue() {
 	h := NewMetricHandler(svc, pub)
 
 	// Сначала обновляем метрику через сервис
-	_ = svc.UpdateMetric(nil, models.Metrics{
+	_ = svc.UpdateMetric(context.TODO(), models.Metrics{
 		ID:    "test_counter",
 		MType: models.Counter,
 		Delta: func() *int64 { v := int64(10); return &v }(),
@@ -65,7 +66,7 @@ func ExampleMetricHandler_GetAllMetrics() {
 	pub := audit.NewAuditPublisher()
 	h := NewMetricHandler(svc, pub)
 
-	_ = svc.UpdateMetric(nil, models.Metrics{
+	_ = svc.UpdateMetric(context.TODO(), models.Metrics{
 		ID:    "test_gauge",
 		MType: models.Gauge,
 		Value: func() *float64 { v := 3.14; return &v }(),

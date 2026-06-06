@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,7 +46,7 @@ func ExampleMetricHandler_GetMetricValueJSON() {
 	h := NewMetricHandler(svc, pub)
 
 	// Сначала обновляем метрику
-	_ = svc.UpdateMetric(nil, models.Metrics{
+	_ = svc.UpdateMetric(context.TODO(), models.Metrics{
 		ID:    "test_counter_json",
 		MType: models.Counter,
 		Delta: func() *int64 { v := int64(42); return &v }(),
