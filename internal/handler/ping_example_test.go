@@ -1,35 +1,33 @@
-package handler
+package handler_test
 
 import (
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
+	_ "modernc.org/sqlite"
 )
 
-// ExamplePingHandler_Ping демонстрирует проверку соединения с базой данных.
-// В реальном коде используется sql.Open для подключения к БД.
+// ExamplePingHandler_Ping демонстрирует проверку соединения с базой данных
+// через GET /ping. В примере используется in-memory SQLite.
+// При успешном подключении хендлер возвращает 200 OK.
 func ExamplePingHandler_Ping() {
-	// Пример с моком: в реальности здесь будет sql.Open("postgres", dsn)
-	// Для примера создадим nil db, чтобы показать ошибку
-	var db *sql.DB = nil
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	defer db.Close()
 
-	h := NewPingHandler(db)
+	// Проверяем, что соединение работает
+	if err := db.Ping(); err != nil {
+		fmt.Println("error:", err)
+		return
+	}
 
-	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
-	w := httptest.NewRecorder()
-
-	h.Ping(w, req)
-
-	fmt.Println("Status:", w.Code)
-	// Output:
-	// Status: 500
-}
-
-// ExamplePingHandler_Ping_second демонстрирует ответ при отсутствии подключения к БД.
-func ExamplePingHandler_Ping_second() {
-	// Этот пример показывает поведение при nil db
-	h := NewPingHandler(nil)
+	h := handler.NewPingHandler(db)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
@@ -37,6 +35,7 @@ func ExamplePingHandler_Ping_second() {
 	h.Ping(w, req)
 
 	fmt.Println("Status:", w.Code)
+
 	// Output:
-	// Status: 500
+	// Status: 200
 }

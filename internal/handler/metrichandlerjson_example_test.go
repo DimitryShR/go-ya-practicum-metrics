@@ -1,100 +1,115 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/repository"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
-// ExampleMetricHandler_UpdateMetricHandlerJSON демонстрирует обновление метрики через JSON API.
+// ExampleMetricHandler_UpdateMetricHandlerJSON демонстрирует обновление метрики
+// через JSON API: POST /update с телом запроса в формате JSON.
+// Хендлер возвращает обновлённую метрику в JSON.
 func ExampleMetricHandler_UpdateMetricHandlerJSON() {
-	repo := repository.NewMemStorage()
-	svc := service.NewMetricService(repo)
-	pub := audit.NewAuditPublisher()
-	h := NewMetricHandler(svc, pub)
+	store := repository.NewMemStorage()
+	svc := service.NewMetricService(store)
+	h := handler.NewMetricHandler(svc, nil)
 
-	metric := models.Metrics{
-		ID:    "test_gauge_json",
-		MType: models.Gauge,
-		Value: func() *float64 { v := 123.45; return &v }(),
+	r := chi.NewRouter()
+	r.Post("/update", h.UpdateMetricHandlerJSON)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	body := `{"id":"test_counter","type":"counter","delta":10}`
+	resp, err := http.Post(ts.URL+"/update", "application/json", bytes.NewReader([]byte(body)))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
 	}
-	body, _ := json.Marshal(metric)
+	defer resp.Body.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/update", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println("Status:", resp.StatusCode)
+	fmt.Println("Body:", strings.TrimSpace(string(respBody)))
 
-	h.UpdateMetricHandlerJSON(w, req)
-
-	fmt.Println("Status:", w.Code)
-	fmt.Println("Body:", w.Body.String())
+	// Output:
+	// Status: 200
+	// Body: {"id":"test_counter","type":"counter","delta":10}
 }
 
-// ExampleMetricHandler_GetMetricValueJSON демонстрирует получение значения метрики через JSON API.
+// ExampleMetricHandler_GetMetricValueJSON демонстрирует получение значения метрики
+// через JSON API: POST /value с телом запроса {id, type}. Хендлер возвращает
+// метрику с заполненным полем delta или value.
 func ExampleMetricHandler_GetMetricValueJSON() {
-	repo := repository.NewMemStorage()
-	svc := service.NewMetricService(repo)
-	pub := audit.NewAuditPublisher()
-	h := NewMetricHandler(svc, pub)
+	store := repository.NewMemStorage()
+	svc := service.NewMetricService(store)
+	h := handler.NewMetricHandler(svc, nil)
+
+	r := chi.NewRouter()
+	r.Post("/update", h.UpdateMetricHandlerJSON)
+	r.Post("/value", h.GetMetricValueJSON)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
 
 	// Сначала обновляем метрику
-	_ = svc.UpdateMetric(context.TODO(), models.Metrics{
-		ID:    "test_counter_json",
-		MType: models.Counter,
-		Delta: func() *int64 { v := int64(42); return &v }(),
-	})
-
-	requestMetric := models.Metrics{
-		ID:    "test_counter_json",
-		MType: models.Counter,
+	updateBody := `{"id":"test_gauge","type":"gauge","value":42.5}`
+	resp, err := http.Post(ts.URL+"/update", "application/json", bytes.NewReader([]byte(updateBody)))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
 	}
-	body, _ := json.Marshal(requestMetric)
+	resp.Body.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/value", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	// Получаем значение метрики
+	getBody := `{"id":"test_gauge","type":"gauge"}`
+	resp, err = http.Post(ts.URL+"/value", "application/json", bytes.NewReader([]byte(getBody)))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	defer resp.Body.Close()
 
-	h.GetMetricValueJSON(w, req)
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println("Status:", resp.StatusCode)
+	fmt.Println("Body:", strings.TrimSpace(string(respBody)))
 
-	fmt.Println("Status:", w.Code)
-	fmt.Println("Body:", w.Body.String())
+	// Output:
+	// Status: 200
+	// Body: {"id":"test_gauge","type":"gauge","value":42.5}
 }
 
-// ExampleMetricHandler_UpdateMetricsHandlerJSON демонстрирует пакетное обновление метрик через JSON API.
+// ExampleMetricHandler_UpdateMetricsHandlerJSON демонстрирует пакетное обновление метрик
+// через JSON API: POST /updates с массивом метрик в теле запроса.
 func ExampleMetricHandler_UpdateMetricsHandlerJSON() {
-	repo := repository.NewMemStorage()
-	svc := service.NewMetricService(repo)
-	pub := audit.NewAuditPublisher()
-	h := NewMetricHandler(svc, pub)
+	store := repository.NewMemStorage()
+	svc := service.NewMetricService(store)
+	h := handler.NewMetricHandler(svc, nil)
 
-	metrics := []models.Metrics{
-		{
-			ID:    "batch_gauge",
-			MType: models.Gauge,
-			Value: func() *float64 { v := 1.1; return &v }(),
-		},
-		{
-			ID:    "batch_counter",
-			MType: models.Counter,
-			Delta: func() *int64 { v := int64(5); return &v }(),
-		},
+	r := chi.NewRouter()
+	r.Post("/updates", h.UpdateMetricsHandlerJSON)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	body := `[{"id":"test_counter","type":"counter","delta":10},{"id":"test_gauge","type":"gauge","value":3.14}]`
+	resp, err := http.Post(ts.URL+"/updates", "application/json", bytes.NewReader([]byte(body)))
+	if err != nil {
+		fmt.Println("error:", err)
+		return
 	}
-	body, _ := json.Marshal(metrics)
+	defer resp.Body.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/updates", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	fmt.Println("Status:", resp.StatusCode)
 
-	h.UpdateMetricsHandlerJSON(w, req)
-
-	fmt.Println("Status:", w.Code)
-	fmt.Println("Body:", w.Body.String())
+	// Output:
+	// Status: 200
 }
