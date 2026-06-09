@@ -43,7 +43,6 @@ func NewRemoteAuditorWithRetry(
 	retryMaxWaitTime time.Duration,
 ) *RemoteAuditor {
 	client := resty.New()
-	client.SetTimeout(timeout)
 	client.SetRetryCount(retryCount)
 	client.SetRetryWaitTime(retryWaitTime)
 	client.SetRetryMaxWaitTime(retryMaxWaitTime)

@@ -1,28 +1,39 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"io"
 	"net/http"
+
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
+	addr := flag.String("a", ":8083", "Audit Server address")
+	flag.Parse()
+
+	if err := logger.Initialize("info"); err != nil {
+		panic(err)
+	}
+	defer logger.Log.Sync()
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Printf("error reading body: %v\n", err)
+			logger.Log.Error("failed to read audit request body", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Printf("AUDIT EVENT: %s\n", string(body))
+		logger.Log.Info("audit event received", zap.String("body", string(body)))
 		w.WriteHeader(http.StatusOK)
 	})
 
-	fmt.Println("Audit server listening on :8083")
-	if err := http.ListenAndServe(":8083", nil); err != nil {
-		fmt.Printf("server error: %v\n", err)
+	logger.Log.Info("audit server started", zap.String("address", *addr))
+	if err := http.ListenAndServe(*addr, nil); err != nil {
+		logger.Log.Fatal("audit server error", zap.Error(err))
 	}
 }
