@@ -45,6 +45,25 @@ git fetch template && git checkout template/v2 .github
 
 ## Профилирование и оптимизация
 
+Узкие места выявлялись с помощью `pprof` (профили памяти «до» `profiles/base.pprof` и  «после» `profiles/result.pprof`)
+
+Дополнительные замеры осуществлялись с помощью бенчмарков (результаты «до» `profiles/bench_base.txt`, «после» `profiles/bench_result.txt`)
+
+### Выполненные оптимизации
+
+1. **Переиспользование gzip.Writer/Reader через `sync.Pool`** (`internal/compress/gzip.go`):
+   На каждый HTTP-запрос создавались новые `gzip.Writer`, `gzip.Reader` и `bytes.Buffer`. `compress/flate.NewWriter` занимал 15,3 MB flat (73,8% от 20,8 MB общего потребления). После внедрения трёх `sync.Pool` его потребление снизилось до 0,9 MB, а общее потребление памяти сервера упало до 2,7 MB (сокращение на 87%). Бенчмарки подтверждают: аллокации — с 20 → 1 alloc/op, память — с ~814 KB → 80–479 B (Small/Large payload), скорость — в 5–12 раз быстрее.
+
+2. **Кеширование HTML-шаблона** (`internal/handler/metrichandler.go`):
+   При каждом `GET /` HTML-шаблон парсился заново вместе с `regexp.Compile`. Шаблон вынесен в глобальную переменную `metricsTemplate` с однократной инициализацией. Результат по бенчмарку `GetAllMetrics`: аллокации — с 752 → 555 alloc/op (−26%), память — с 40,6 → 22,4 KB (−45%), время — со 159 → 100 μs (−37%).
+
+3. **Предварительное выделение слайса метрик** (`internal/agent/metriccollector.go`):
+   Создание слайса без ёмкости (`var metrics []models.Metrics`) приводило к множественным переаллокациям при `append`. Замена на `make(..., len(c.metrics)+1)` дала по бенчмарку `GetMetricsForReport`: аллокации — с 38 → 33 alloc/op (−13%), память — с 4,8 → 2,4 KB (−50%), время — с 7,4 → 5,6 μs (−25%).
+
+
+
+Итоговый `pprof diff_base` подтверждает: суммарное сокращение потребления памяти составило **87%** (с 20,8 MB до 2,7 MB).
+
 ```bash
 go tool pprof -top -diff_base=profiles/base.pprof profiles/result.pprof
 ```
