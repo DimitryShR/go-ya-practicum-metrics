@@ -24,6 +24,7 @@ type ServerConfig struct {
 	SignKey         string        // `env:"KEY"`
 	AuditFile       string        // `env:"AUDIT_FILE"`
 	AuditURL        string        // `env:"AUDIT_URL"`
+	PprofAddress    string        // `env:PPROF_ADDRESS`
 }
 
 // NewServerConfig создаёт конфигурацию сервера, загружая значения из флагов и переменных окружения.
@@ -40,6 +41,7 @@ func NewServerConfig() *ServerConfig {
 		SignKey:         "",
 		AuditFile:       "",
 		AuditURL:        "",
+		PprofAddress:    ":6060",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -86,6 +88,7 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
 	fs.StringVar(&sc.AuditFile, "audit-file", sc.AuditFile, "Audit log file path")
 	fs.StringVar(&sc.AuditURL, "audit-url", sc.AuditURL, "Audit log remote URL")
+	fs.StringVar(&sc.PprofAddress, "pprof", sc.PprofAddress, "Pprof address")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -133,6 +136,7 @@ func (sc *ServerConfig) envParse() error {
 		SignKey         *string  `env:"KEY"`
 		AuditFile       *string  `env:"AUDIT_FILE"`
 		AuditURL        *string  `env:"AUDIT_URL"`
+		PprofAddress    *string  `env:"PPROF_ADDRESS"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -181,6 +185,9 @@ func (sc *ServerConfig) envParse() error {
 	}
 	if tmpCfg.AuditURL != nil {
 		sc.AuditURL = *tmpCfg.AuditURL
+	}
+	if tmpCfg.PprofAddress != nil {
+		sc.PprofAddress = *tmpCfg.PprofAddress
 	}
 
 	return nil

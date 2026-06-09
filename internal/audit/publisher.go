@@ -22,11 +22,12 @@ type Publisher interface {
 // AuditPublisher — реализация Publisher, хранящая список подписчиков и оповещающая их о событиях.
 // Отправка событий происходит асинхронно через buffered channel.
 type AuditPublisher struct {
-	mu        sync.RWMutex
-	observers []Auditor
-	ch        chan AuditEvent
-	workers   int
-	wg        sync.WaitGroup
+	mu           sync.RWMutex
+	observers    []Auditor
+	ch           chan AuditEvent
+	workers      int
+	wg           sync.WaitGroup
+	shutdownOnce sync.Once
 }
 
 const publisherBufferSize = 256
@@ -109,6 +110,8 @@ func (p *AuditPublisher) Notify(event AuditEvent) {
 
 // Shutdown останавливает воркеры и ожидает обработки оставшихся событий.
 func (p *AuditPublisher) Shutdown() {
-	close(p.ch)
-	p.wg.Wait()
+	p.shutdownOnce.Do(func() {
+		close(p.ch)
+		p.wg.Wait()
+	})
 }

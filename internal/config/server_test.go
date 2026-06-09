@@ -19,6 +19,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		SignKey:         "",
 		AuditFile:       "",
 		AuditURL:        "",
+		PprofAddress:    ":6060",
 	}
 
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
@@ -33,6 +34,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		"-k=test-sign-key",
 		"-audit-file=/var/log/audit.json",
 		"-audit-url=http://audit.example.com/events",
+		"-pprof=localhost:6061",
 	})
 	require.NoError(t, err)
 
@@ -55,6 +57,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		"postgres://migrator:secret@localhost:5433/metrics_migrate?sslmode=require",
 		cfg.DBMigrateDsn.GetURL(),
 	)
+	assert.Equal(t, "localhost:6061", cfg.PprofAddress)
 }
 
 func TestServerConfigAuditDefaultsEmpty(t *testing.T) {

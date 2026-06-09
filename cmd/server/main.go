@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,6 +30,16 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+)
+
+type serverEntry struct {
+	srv     *http.Server
+	timeout time.Duration
+}
+
+const (
+	mainShutdownTimeout  = 30 * time.Second
+	pprofShutdownTimeout = 3 * time.Second
 )
 
 type storageMode string
@@ -104,6 +114,7 @@ func run() error {
 		fileAuditor, err := audit.NewFileAuditor(auditCtx, cfg.AuditFile)
 		if err != nil {
 			defer auditCancel()
+			defer auditPublisher.Shutdown()
 			return fmt.Errorf("initialize file auditor: %w", err)
 		}
 		// Дожидаемся сохранения всех данных в файл
@@ -126,12 +137,21 @@ func run() error {
 	pingHandler := handler.NewPingHandler(db)
 	router := newRouter(metricHandler, pingHandler, signer)
 
-	return runServer(cfg.Address, router)
+	mainSrv := runServer(cfg.Address, router)
+
+	var pprofSrv *http.Server
+	if cfg.PprofAddress != "" {
+		pprofSrv = runPprofServer(cfg.PprofAddress)
+	}
+
+	return shutdownServer(
+		serverEntry{mainSrv, mainShutdownTimeout},
+		serverEntry{pprofSrv, pprofShutdownTimeout},
+	)
 }
 
-// runServer запускает HTTP-сервер с таймаутами и обеспечивает graceful shutdown
-// при получении сигналов SIGINT или SIGTERM.
-func runServer(addr string, handler http.Handler) error {
+// runServer запускает HTTP-сервер с таймаутами.
+func runServer(addr string, handler http.Handler) *http.Server {
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      handler,
@@ -140,8 +160,7 @@ func runServer(addr string, handler http.Handler) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Запуск сервера в горутине. ListenAndServe возвращает http.ErrServerClosed
-	// при вызове Shutdown, что является ожидаемым поведением при graceful shutdown.
+	// Запуск сервера в горутине. ListenAndServe возвращает http.ErrServerClosed при вызове Shutdown.
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Log.Fatal("Server failed", zap.Error(err))
@@ -149,24 +168,62 @@ func runServer(addr string, handler http.Handler) error {
 	}()
 
 	logger.Log.Info("Server started", zap.String("address", addr))
+	return srv
+}
 
+// runPprofServer запускает HTTP-сервер для Pprof.
+func runPprofServer(addr string) *http.Server {
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: http.DefaultServeMux,
+	}
+
+	// Запуск сервера в горутине. ListenAndServe возвращает http.ErrServerClosed при вызове Shutdown.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Error("Pprof server failed", zap.Error(err))
+		}
+	}()
+	logger.Log.Info("Starting pprof server", zap.String("address", addr))
+	return srv
+}
+
+// shutdownServer обеспечивает graceful shutdown при получении сигналов SIGINT или SIGTERM.
+func shutdownServer(servers ...serverEntry) error {
 	// Ожидание сигнала завершения (SIGINT или SIGTERM)
 	sigCtx, sigStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer sigStop()
 	<-sigCtx.Done()
 	logger.Log.Info("Received signal, shutting down server...")
 
-	// Даём серверу 30 секунд на завершение активных запросов
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Log.Error("Server forced to shutdown", zap.Error(err))
-		return err
+	for _, entry := range servers {
+		if entry.srv == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(e serverEntry) {
+			defer wg.Done()
+			// Параметризированный таймаут на graceful завершение сервера
+			ctx, cancel := context.WithTimeout(context.Background(), e.timeout)
+			defer cancel()
+			if err := e.srv.Shutdown(ctx); err != nil {
+				logger.Log.Error("Server forced to shutdown", zap.String("server address", e.srv.Addr), zap.Error(err))
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(entry)
 	}
+	wg.Wait()
 
-	logger.Log.Info("Server stopped gracefully")
-	return nil
+	if len(errs) == 0 {
+		logger.Log.Info("Server stopped gracefully")
+	}
+	return errors.Join(errs...)
 }
 
 func newRouter(
@@ -190,13 +247,7 @@ func newRouter(
 	r.Get("/", metricHandler.GetAllMetrics)
 	r.Get("/ping", pingHandler.Ping)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if strings.HasPrefix(req.URL.Path, "/debug/pprof") {
-			http.DefaultServeMux.ServeHTTP(w, req)
-			return
-		}
-		r.ServeHTTP(w, req)
-	})
+	return r
 }
 
 func getMode(cfg *config.ServerConfig) storageMode {
