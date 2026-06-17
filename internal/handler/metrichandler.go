@@ -3,9 +3,12 @@ package handler
 import (
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
@@ -13,15 +16,61 @@ import (
 	"go.uber.org/zap"
 )
 
+// metricsTemplate создаётся один раз при инициализации приложения.
+var metricsTemplate = func() *template.Template {
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Metrics</h1>
+
+    {{range $name, $value := .Gauges}}
+    <div>{{$name}}: {{printf "%.2f" $value}}</div>
+    {{end}}
+
+    {{range $name, $value := .Counters}}
+    <div>{{$name}}: {{$value}}</div>
+    {{end}}
+</body>
+</html>
+`
+	t, err := template.New("metrics").Funcs(funcMap).Parse(tmpl)
+	if err != nil {
+		panic("failed to parse metrics template: " + err.Error())
+	}
+	return t
+}()
+
+// MetricHandler — HTTP-обработчик для работы с метриками.
 type MetricHandler struct {
-	service service.MetricService
+	service   service.MetricService
+	publisher audit.Publisher
 }
 
-func NewMetricHandler(service service.MetricService) *MetricHandler {
-	return &MetricHandler{service: service}
+// NewMetricHandler создаёт новый MetricHandler с указанным сервисом метрик и издателем аудит-событий.
+func NewMetricHandler(service service.MetricService, publisher audit.Publisher) *MetricHandler {
+	return &MetricHandler{
+		service:   service,
+		publisher: publisher,
+	}
 }
 
-// UpdateMetric - обработчик POST /update/<type>/<name>/<value>
+// extractIPAddress извлекает IP-адрес из RemoteAddr запроса.
+func extractIPAddress(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// UpdateMetricHandler — обработчик POST /update/{type}/{name}/{value}.
+// Обновляет метрику через URL-параметры. После успешного обновления отправляет аудит-событие.
 func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -39,11 +88,19 @@ func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if mh.publisher != nil {
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{metric.ID},
+			IPAddress: extractIPAddress(r),
+		})
+	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetMetricValue - обработчик GET /value/<type>/<name>
+// GetMetricValue — обработчик GET /value/{type}/{name}.
+// Возвращает значение метрики указанного типа и имени.
 func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -93,7 +150,8 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetAllMetrics - обработчик GET / (HTML страница со всеми метриками)
+// GetAllMetrics — обработчик GET /.
+// Возвращает HTML-страницу со всеми сохранёнными метриками (gauge и counter).
 func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || r.URL.Path != "/" {
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -113,37 +171,6 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// HTML шаблон
-	tmpl := `
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Metrics</h1>
-
-    {{range $name, $value := .Gauges}}
-    <div>{{$name}}: {{printf "%.2f" $value}}</div>
-    {{end}}
-
-    {{range $name, $value := .Counters}}
-    <div>{{$name}}: {{$value}}</div>
-    {{end}}
-</body>
-</html>
-`
-
-	// Функции для шаблона
-	funcMap := template.FuncMap{
-		"add": func(a, b int) int {
-			return a + b
-		},
-	}
-
-	t, err := template.New("metrics").Funcs(funcMap).Parse(tmpl)
-	if err != nil {
-		http.Error(w, "Failed to render template", http.StatusInternalServerError)
-		return
-	}
-
 	data := struct {
 		Gauges   map[string]float64
 		Counters map[string]int64
@@ -154,7 +181,7 @@ func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	if err := t.Execute(w, data); err != nil {
+	if err := metricsTemplate.Execute(w, data); err != nil {
 		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
 	}
 }

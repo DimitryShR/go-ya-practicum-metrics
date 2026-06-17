@@ -86,8 +86,12 @@ func TestMetricHandler_UpdateMetricHandlerJSON(t *testing.T) {
 			mockService := new(MockMetricService)
 			tt.mockSetup(mockService)
 
+			// Создаем мок publisher'а
+			mockPublisher := new(MockPublisher)
+			mockPublisher.On("Notify", mock.AnythingOfType("audit.AuditEvent")).Return().Maybe()
+
 			// Создаем handler
-			metricHandler := handler.NewMetricHandler(mockService)
+			metricHandler := handler.NewMetricHandler(mockService, mockPublisher)
 
 			var reqBody *bytes.Buffer
 			if tt.rawBody != "" {
@@ -169,7 +173,10 @@ func TestMetricHandler_GetMetricValueJSON_Errors(t *testing.T) {
 			mockService := new(MockMetricService)
 			tt.mockSetup(mockService)
 
-			metricHandler := handler.NewMetricHandler(mockService)
+			// Создаем мок publisher'а
+			mockPublisher := new(MockPublisher)
+
+			metricHandler := handler.NewMetricHandler(mockService, mockPublisher)
 
 			var reqBody bytes.Buffer
 			if err := json.NewEncoder(&reqBody).Encode(tt.metric); err != nil {
@@ -266,7 +273,11 @@ func TestMetricHandler_UpdateMetricsHandlerJSON(t *testing.T) {
 			mockService := new(MockMetricService)
 			tt.mockSetup(mockService)
 
-			metricHandler := handler.NewMetricHandler(mockService)
+			// Создаем мок publisher'а
+			mockPublisher := new(MockPublisher)
+			mockPublisher.On("Notify", mock.AnythingOfType("audit.AuditEvent")).Return().Maybe()
+
+			metricHandler := handler.NewMetricHandler(mockService, mockPublisher)
 
 			var reqBody *bytes.Buffer
 			if tt.rawBody != "" {

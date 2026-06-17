@@ -1,3 +1,5 @@
+// Package config предоставляет конфигурацию для агента и сервера.
+// Поддерживает загрузку из переменных окружения, флагов командной строки и значений по умолчанию.
 package config
 
 import (
@@ -12,6 +14,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
+// AgentConfig — конфигурация агента сбора метрик.
 type AgentConfig struct {
 	PollInterval   time.Duration
 	ReportInterval time.Duration
@@ -20,8 +23,8 @@ type AgentConfig struct {
 	RateLimit      int
 }
 
-// Создаем новый экземпляр конфигурации агента, загружая значения конфигурации
-// Приоритет загрузки: переменные окружения > флаги > значения по умолчанию
+// NewAgentConfig создаёт конфигурацию агента, загружая значения из флагов и переменных окружения.
+// Приоритет: env vars > flags > defaults.
 func NewAgentConfig() *AgentConfig {
 	cfg := &AgentConfig{
 		ServerAddress:  "http://localhost:8080",
@@ -46,6 +49,7 @@ func NewAgentConfig() *AgentConfig {
 	return cfg
 }
 
+// NewTestAgentConfig создаёт тестовую конфигурацию агента с заданным адресом сервера.
 func NewTestAgentConfig(serverAddress string) *AgentConfig {
 	return &AgentConfig{
 		ServerAddress:  serverAddress,
@@ -55,14 +59,14 @@ func NewTestAgentConfig(serverAddress string) *AgentConfig {
 	}
 }
 
-// Добавляем схему по умолчанию, если она не указана в адресе сервера
+// normalizeAddress добавляет схему http:// к адресу сервера, если она не указана.
 func (ac *AgentConfig) normalizeAddress() {
 	if !strings.Contains(ac.ServerAddress, "://") {
 		ac.ServerAddress = "http://" + ac.ServerAddress
 	}
 }
 
-// Извлекаем конфигурацию из переменных окружения и вносим изменения в структуру конфигурации
+// envParse загружает конфигурацию из переменных окружения.
 func (ac *AgentConfig) envParse() error {
 	tmpCfg := struct {
 		PollInterval   *float64 `env:"POLL_INTERVAL"`
@@ -94,7 +98,7 @@ func (ac *AgentConfig) envParse() error {
 	return nil
 }
 
-// Парсим флаги командной строки и вносим изменения в структуру конфигурации
+// parseFlags парсит флаги командной строки.
 func (ac *AgentConfig) parseFlags() error {
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	// Подавляем вывод
@@ -103,6 +107,7 @@ func (ac *AgentConfig) parseFlags() error {
 	return ac.parseFlagSet(fs, os.Args[1:])
 }
 
+// parseFlagSet парсит набор флагов.
 func (ac *AgentConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	// Флаг для адреса сервера
 	fs.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
@@ -129,7 +134,7 @@ func (ac *AgentConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	return nil
 }
 
-// Валидация конфигурации с накоплением ошибок
+// validate проверяет корректность конфигурации.
 func (ac *AgentConfig) validate() error {
 	var errs []error
 	if ac.PollInterval <= 0 {

@@ -8,11 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// errorResponse представляет структуру JSON-ответа с ошибкой.
 type errorResponse struct {
 	Error string `json:"error"`
 }
 
-// writeJSON - вспомогательная функция для отправки JSON ответа с заданным статусом и данными
+// writeJSON отправляет JSON-ответ с заданным HTTP-статусом и данными.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -26,7 +27,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-// writeJSONError - вспомогательная функция для отправки JSON ответа с ошибкой
+// writeJSONError отправляет JSON-ответ с сообщением об ошибке.
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, errorResponse{Error: msg})
 }

@@ -5,14 +5,17 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/service"
 	"go.uber.org/zap"
 )
 
-// UpdateMetricHandlerJSON - обработчик POST /update (JSON тело)
+// UpdateMetricHandlerJSON — обработчик POST /update (JSON body).
+// Принимает метрику в JSON-формате, обновляет её и возвращает обновлённую метрику.
 func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -44,10 +47,18 @@ func (mh *MetricHandler) UpdateMetricHandlerJSON(w http.ResponseWriter, r *http.
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metric")
 		return
 	}
+	if mh.publisher != nil {
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   []string{metric.ID},
+			IPAddress: extractIPAddress(r),
+		})
+	}
 	writeJSON(w, http.StatusOK, metric)
 }
 
-// GetMetricValueJSON - обработчик POST /value/ (JSON Body)
+// GetMetricValueJSON — обработчик POST /value (JSON body).
+// Принимает запрос с ID и типом метрики, возвращает её текущее значение в JSON.
 func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -114,7 +125,8 @@ func (mh *MetricHandler) GetMetricValueJSON(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// UpdateMetricsHandlerJSON - обработчик POST /updates (JSON тело)
+// UpdateMetricsHandlerJSON — обработчик POST /updates (JSON body).
+// Принимает массив метрик в JSON-формате и выполняет пакетное обновление.
 func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -143,6 +155,20 @@ func (mh *MetricHandler) UpdateMetricsHandlerJSON(w http.ResponseWriter, r *http
 		logger.Log.Info("cannot update metrics", zap.Error(err))
 		writeJSONError(w, http.StatusBadRequest, "Cannot update metrics")
 		return
+	}
+
+	if mh.publisher != nil {
+		// Формируем список имён метрик для аудита
+		metricNames := make([]string, 0, len(metrics))
+		for _, m := range metrics {
+			metricNames = append(metricNames, m.ID)
+		}
+
+		mh.publisher.Notify(audit.AuditEvent{
+			Timestamp: time.Now().Unix(),
+			Metrics:   metricNames,
+			IPAddress: extractIPAddress(r),
+		})
 	}
 	writeJSON(w, http.StatusOK, metrics)
 }

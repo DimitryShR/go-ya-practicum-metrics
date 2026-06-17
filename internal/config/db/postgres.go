@@ -1,3 +1,4 @@
+// Package db предоставляет утилиты для парсинга и работы с DSN PostgreSQL.
 package db
 
 import (
@@ -9,6 +10,7 @@ import (
 
 const defaultSSLMode = "disable"
 
+// PgConn хранит параметры подключения к PostgreSQL.
 type PgConn struct {
 	Scheme   string
 	Host     string
@@ -19,6 +21,7 @@ type PgConn struct {
 	SslMode  string
 }
 
+// NewPgConn создаёт PgConn из отдельных параметров подключения.
 func NewPgConn(host, port, user, password, dbName string, sslmode *string) (*PgConn, error) {
 	intPort, err := parsePort(port)
 	if err != nil {
@@ -33,6 +36,8 @@ func NewPgConn(host, port, user, password, dbName string, sslmode *string) (*PgC
 	return &PgConn{Host: host, Port: intPort, User: user, Password: password, DBName: dbName, SslMode: *sslmode}, nil
 }
 
+// NewPgConnDsn парсит DSN в формате URL и возвращает PgConn.
+// Возвращает nil, nil если DSN пустой.
 func NewPgConnDsn(dsn string) (*PgConn, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, nil
@@ -75,6 +80,7 @@ func NewPgConnDsn(dsn string) (*PgConn, error) {
 	return &PgConn{Scheme: scheme, Host: host, Port: port, User: user, Password: password, DBName: dbname, SslMode: sslmode}, nil
 }
 
+// parsePort парсит строку порта в int. Возвращает 5432 по умолчанию.
 func parsePort(port string) (int, error) {
 	if port == "" {
 		return 5432, nil
@@ -86,6 +92,7 @@ func parsePort(port string) (int, error) {
 	return p, nil
 }
 
+// GetKeywordDSN возвращает DSN в формате keyword=value для lib/pq.
 func (p PgConn) GetKeywordDSN() string {
 	if p.Host == "" {
 		return ""
@@ -97,6 +104,7 @@ func (p PgConn) GetKeywordDSN() string {
 		p.Host, p.Port, p.User, p.Password, p.DBName, p.SslMode)
 }
 
+// GetURL возвращает DSN в формате URL для pgx.
 func (p PgConn) GetURL() string {
 	if p.Host == "" {
 		return ""

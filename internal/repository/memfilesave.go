@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// EnableSyncSave включает синхронную запись после каждого обновления метрики
+// EnableSyncSave включает синхронную запись после каждого обновления метрики.
 func (ms *MemStorage) EnableSyncSave(path string) {
 	ms.syncSavePath = path
 }
@@ -25,6 +25,7 @@ func (ms *MemStorage) saveIfEnabled(ctx context.Context) error {
 	return ms.SaveToFile(ctx, ms.syncSavePath)
 }
 
+// SaveToFile сохраняет все метрики в JSON-файл атомарно (через временный файл + rename).
 func (ms *MemStorage) SaveToFile(ctx context.Context, path string) error {
 	if path == "" {
 		return errors.New("file path is empty")
@@ -96,6 +97,8 @@ func (ms *MemStorage) SaveToFile(ctx context.Context, path string) error {
 	return nil
 }
 
+// LoadFromFile загружает метрики из JSON-файла.
+// Возвращает true, если файл был успешно загружен, false если файл не существует.
 func (ms *MemStorage) LoadFromFile(ctx context.Context, path string) (bool, error) {
 	if path == "" {
 		return false, errors.New("file path is empty")

@@ -14,12 +14,15 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// MetricsClient — HTTP-клиент для отправки метрик на сервер.
+// Использует resty для выполнения запросов.
 type MetricsClient struct {
 	config *config.AgentConfig
 	client *resty.Client
 	signer *sign.Signer
 }
 
+// NewMetricsClient создаёт новый MetricsClient с базовым URL сервера.
 func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 	restyClient := resty.New()
 	restyClient.SetTimeout(5 * time.Second)
@@ -41,7 +44,7 @@ func joinURL(base string, parts ...string) string {
 	return strings.TrimRight(base, "/") + "/" + path.Join(parts...)
 }
 
-// Вспомогательный метод установки заголовка подписи
+// setHashHeader устанавливает заголовок HashSHA256, если настроен signer.
 func (c *MetricsClient) setHashHeader(r *resty.Request, body []byte) *resty.Request {
 	if c.signer == nil {
 		return r
@@ -49,7 +52,7 @@ func (c *MetricsClient) setHashHeader(r *resty.Request, body []byte) *resty.Requ
 	return r.SetHeader("HashSHA256", c.signer.Sign(body))
 }
 
-// Вспомогательный метод извлечения метрик из URL
+// getMetricURL формирует URL для отправки метрики через URL-путь.
 func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 	var url string
 
@@ -74,11 +77,12 @@ func (c *MetricsClient) getMetricURL(metric models.Metrics) (string, error) {
 	return url, nil
 }
 
-// метод отправки одной метрики
+// SendMetric отправляет одну метрику через URL-путь (использует background context).
 func (c *MetricsClient) SendMetric(metric models.Metrics) error {
 	return c.SendMetricWithContext(context.Background(), metric)
 }
 
+// SendMetricWithContext отправляет одну метрику через URL-путь /update/{type}/{name}/{value}.
 func (c *MetricsClient) SendMetricWithContext(ctx context.Context, metric models.Metrics) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -103,7 +107,7 @@ func (c *MetricsClient) SendMetricWithContext(ctx context.Context, metric models
 	})
 }
 
-// метод для отправки всех метрик
+// SendMetrics отправляет массив метрик последовательно.
 func (c *MetricsClient) SendMetrics(metrics []models.Metrics) error {
 	for _, metric := range metrics {
 		if err := c.SendMetric(metric); err != nil {
@@ -113,11 +117,12 @@ func (c *MetricsClient) SendMetrics(metrics []models.Metrics) error {
 	return nil
 }
 
-// Метод получения значения метрики
+// GetMetric получает значение метрики через URL-путь (использует background context).
 func (c *MetricsClient) GetMetric(metricType models.MetricType, metricName string) (string, error) {
 	return c.GetMetricWithContext(context.Background(), metricType, metricName)
 }
 
+// GetMetricWithContext получает значение метрики через URL-путь /value/{type}/{name}.
 func (c *MetricsClient) GetMetricWithContext(
 	ctx context.Context,
 	metricType models.MetricType,

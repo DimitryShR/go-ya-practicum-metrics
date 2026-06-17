@@ -13,11 +13,13 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
+// virtualMemoryStat — упрощённая структура для виртуальной памяти (для тестирования).
 type virtualMemoryStat struct {
 	Total uint64
 	Free  uint64
 }
 
+// MetricsCollector собирает runtime и системные метрики.
 type MetricsCollector struct {
 	mu                sync.Mutex
 	metrics           map[string]float64
@@ -28,6 +30,7 @@ type MetricsCollector struct {
 	readCPUPercent    func() ([]float64, error)
 }
 
+// NewMetricsCollector создаёт новый сборщик метрик с функциями для чтения runtime/системных данных.
 func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
 		metrics:      make(map[string]float64),
@@ -48,10 +51,12 @@ func NewMetricsCollector() *MetricsCollector {
 	}
 }
 
+// Collect собирает runtime метрики (алиас для CollectRuntime).
 func (c *MetricsCollector) Collect() {
 	c.CollectRuntime()
 }
 
+// CollectRuntime собирает runtime метрики (MemStats) и обновляет внутреннее хранилище.
 func (c *MetricsCollector) CollectRuntime() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -97,6 +102,7 @@ func (c *MetricsCollector) CollectRuntime() {
 	c.metrics["RandomValue"] = rand.Float64()
 }
 
+// CollectSystem собирает системные метрики (CPU, RAM через gopsutil) и обновляет хранилище.
 func (c *MetricsCollector) CollectSystem() error {
 	virtualMemory, memoryErr := c.readVirtualMemory()
 	cpuUtilization, cpuErr := c.readCPUPercent()
@@ -134,11 +140,14 @@ func (c *MetricsCollector) CollectSystem() error {
 	return errors.Join(errs...)
 }
 
+// GetMetricsForReport возвращает все накопленные метрики для отправки на сервер.
+// Сбрасывает внутренний счётчик PollCount после сбора.
 func (c *MetricsCollector) GetMetricsForReport() []models.Metrics {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var metrics []models.Metrics
+	// Предварительное выделение слайса необходимой ёмкости
+	metrics := make([]models.Metrics, 0, len(c.metrics)+1)
 
 	// Добавляем все gauge метрики
 	for name, value := range c.metrics {
