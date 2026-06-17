@@ -1,0 +1,12 @@
+{
+    "staticcheck": {
+        "SA": true,
+        "ST": ["ST1000"],
+        "QF": ["QF1001"],
+        "S": ["S1000"]
+    },
+    "public": [
+        "asciicheck",
+        "ireturn"
+    ]
+}
