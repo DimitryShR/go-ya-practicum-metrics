@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Создаем шаблон один раз (при инициализации приложения)
+// metricsTemplate создаётся один раз при инициализации приложения.
 var metricsTemplate = func() *template.Template {
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int {
@@ -46,11 +46,13 @@ var metricsTemplate = func() *template.Template {
 	return t
 }()
 
+// MetricHandler — HTTP-обработчик для работы с метриками.
 type MetricHandler struct {
 	service   service.MetricService
 	publisher audit.Publisher
 }
 
+// NewMetricHandler создаёт новый MetricHandler с указанным сервисом метрик и издателем аудит-событий.
 func NewMetricHandler(service service.MetricService, publisher audit.Publisher) *MetricHandler {
 	return &MetricHandler{
 		service:   service,
@@ -67,7 +69,8 @@ func extractIPAddress(r *http.Request) string {
 	return host
 }
 
-// UpdateMetric - обработчик POST /update/<type>/<name>/<value>
+// UpdateMetricHandler — обработчик POST /update/{type}/{name}/{value}.
+// Обновляет метрику через URL-параметры. После успешного обновления отправляет аудит-событие.
 func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		logger.Log.Info("got request with bad method", zap.String("method", r.Method))
@@ -96,7 +99,8 @@ func (mh *MetricHandler) UpdateMetricHandler(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetMetricValue - обработчик GET /value/<type>/<name>
+// GetMetricValue — обработчик GET /value/{type}/{name}.
+// Возвращает значение метрики указанного типа и имени.
 func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -146,7 +150,8 @@ func (mh *MetricHandler) GetMetricValue(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetAllMetrics - обработчик GET / (HTML страница со всеми метриками)
+// GetAllMetrics — обработчик GET /.
+// Возвращает HTML-страницу со всеми сохранёнными метриками (gauge и counter).
 func (mh *MetricHandler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || r.URL.Path != "/" {
 		http.Error(w, "Not found", http.StatusNotFound)

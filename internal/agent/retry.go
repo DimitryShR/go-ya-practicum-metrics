@@ -9,6 +9,7 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/retry"
 )
 
+// withRetry выполняет операцию с retry для временных сетевых ошибок.
 func (c *MetricsClient) withRetry(ctx context.Context, op func() error) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -16,6 +17,9 @@ func (c *MetricsClient) withRetry(ctx context.Context, op func() error) error {
 	return retry.Do(ctx, nil, isRetryableRequestError, op)
 }
 
+// isRetryableRequestError проверяет, является ли ошибка временной и стоит ли повторять запрос.
+// Повторяет: context.DeadlineExceeded, сетевые таймауты, syscall ошибки соединения.
+// Не повторяет: context.Canceled.
 func isRetryableRequestError(err error) bool {
 	if err == nil {
 		return false

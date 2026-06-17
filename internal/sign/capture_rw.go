@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// captureResponseWriter - это реализация http.ResponseWriter,
+// captureResponseWriter — это реализация http.ResponseWriter,
 // основной целью которой является буферизация тела ответа для последующего использования в подписи.
 type captureResponseWriter struct {
 	header     http.Header
@@ -13,7 +13,7 @@ type captureResponseWriter struct {
 	statusCode int
 }
 
-// Создает новый экземпляр captureResponseWriter для захвата данных ответа.
+// NewCaptureResponseWriter создаёт новый экземпляр captureResponseWriter для захвата данных ответа.
 func NewCaptureResponseWriter() *captureResponseWriter {
 	return &captureResponseWriter{
 		header: make(http.Header),

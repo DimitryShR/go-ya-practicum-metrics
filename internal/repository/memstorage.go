@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// MemStorage — in-memory реализация хранилища метрик.
+// Потокобезопасна благодаря RWMutex.
 type MemStorage struct {
 	mu           sync.RWMutex
 	counters     map[string]int64
@@ -13,6 +15,7 @@ type MemStorage struct {
 	syncSavePath string
 }
 
+// NewMemStorage создаёт новое in-memory хранилище метрик.
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		counters: make(map[string]int64),
@@ -20,6 +23,7 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
+// UpdateCounter обновляет counter-метрику, увеличивая её значение на value.
 func (ms *MemStorage) UpdateCounter(ctx context.Context, name string, value int64) error {
 	if err := requireContext(ctx); err != nil {
 		return err
@@ -30,6 +34,7 @@ func (ms *MemStorage) UpdateCounter(ctx context.Context, name string, value int6
 	return ms.saveIfEnabled(ctx)
 }
 
+// UpdateGauge обновляет gauge-метрику, устанавливая её значение.
 func (ms *MemStorage) UpdateGauge(ctx context.Context, name string, value float64) error {
 	if err := requireContext(ctx); err != nil {
 		return err
@@ -58,6 +63,7 @@ func (ms *MemStorage) updateGauges(ctx context.Context, metrics map[string]float
 	return nil
 }
 
+// UpdateMetrics выполняет пакетное обновление counter и gauge метрик.
 func (ms *MemStorage) UpdateMetrics(ctx context.Context, counters map[string]int64, gauges map[string]float64) error {
 	if len(counters) > 0 {
 		if err := ms.updateCounters(ctx, counters); err != nil {
@@ -72,6 +78,7 @@ func (ms *MemStorage) UpdateMetrics(ctx context.Context, counters map[string]int
 	return nil
 }
 
+// GetCounter возвращает значение counter-метрики по имени.
 func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	if err := requireContext(ctx); err != nil {
 		return 0, err
@@ -85,6 +92,7 @@ func (ms *MemStorage) GetCounter(ctx context.Context, name string) (int64, error
 	return value, nil
 }
 
+// GetGauge возвращает значение gauge-метрики по имени.
 func (ms *MemStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	if err := requireContext(ctx); err != nil {
 		return 0, err
@@ -98,6 +106,7 @@ func (ms *MemStorage) GetGauge(ctx context.Context, name string) (float64, error
 	return value, nil
 }
 
+// GetAllGauges возвращает копию всех gauge-метрик.
 func (ms *MemStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
 	if err := requireContext(ctx); err != nil {
 		return nil, err
@@ -111,6 +120,7 @@ func (ms *MemStorage) GetAllGauges(ctx context.Context) (map[string]float64, err
 	return copied, nil
 }
 
+// GetAllCounters возвращает копию всех counter-метрик.
 func (ms *MemStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	if err := requireContext(ctx); err != nil {
 		return nil, err

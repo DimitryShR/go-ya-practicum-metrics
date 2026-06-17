@@ -1,3 +1,5 @@
+// Package agent реализует логику агента сбора метрик.
+// Агент собирает runtime и системные метрики и отправляет их на сервер.
 package agent
 
 import (
@@ -12,22 +14,27 @@ import (
 
 const metricsQueueSize = 256
 
+// metricsCollector определяет интерфейс сборщика метрик.
 type metricsCollector interface {
 	CollectRuntime()
 	CollectSystem() error
 	GetMetricsForReport() []models.Metrics
 }
 
+// metricsSender определяет интерфейс отправителя метрик.
 type metricsSender interface {
 	SendMetricJSONWithContext(context.Context, models.Metrics) error
 }
 
+// Agent — основной компонент агента сбора метрик.
+// Координирует сбор runtime/системных метрик и их отправку на сервер.
 type Agent struct {
 	config    *config.AgentConfig
 	collector metricsCollector
 	sender    metricsSender
 }
 
+// NewAgent создаёт новый Agent с заданной конфигурацией.
 func NewAgent(cfg *config.AgentConfig) *Agent {
 	return &Agent{
 		config:    cfg,
@@ -36,6 +43,8 @@ func NewAgent(cfg *config.AgentConfig) *Agent {
 	}
 }
 
+// Run запускает агента: запускает коллекторы, репортер и воркеры-отправители.
+// Блокируется до отмены контекста или завершения всех горутин.
 func (a *Agent) Run(ctx context.Context) {
 	a.logStartup()
 
@@ -68,6 +77,7 @@ func (a *Agent) Run(ctx context.Context) {
 	log.Println("Agent stopped")
 }
 
+// logStartup логирует параметры запуска агента.
 func (a *Agent) logStartup() {
 	log.Println("Agent started")
 	log.Printf("Poll interval: %v", a.config.PollInterval)
@@ -76,6 +86,7 @@ func (a *Agent) logStartup() {
 	log.Printf("Server address: %s", a.config.ServerAddress)
 }
 
+// runRuntimeCollector периодически собирает runtime метрики (MemStats).
 func (a *Agent) runRuntimeCollector(ctx context.Context) {
 	pollTicker := time.NewTicker(a.config.PollInterval)
 	defer pollTicker.Stop()
@@ -90,6 +101,7 @@ func (a *Agent) runRuntimeCollector(ctx context.Context) {
 	}
 }
 
+// runSystemCollector периодически собирает системные метрики (CPU, RAM через gopsutil).
 func (a *Agent) runSystemCollector(ctx context.Context) {
 	pollTicker := time.NewTicker(a.config.PollInterval)
 	defer pollTicker.Stop()
@@ -106,6 +118,7 @@ func (a *Agent) runSystemCollector(ctx context.Context) {
 	}
 }
 
+// runReporter периодически получает метрики от коллектора и кладёт их в очередь jobs.
 func (a *Agent) runReporter(ctx context.Context, jobs chan<- models.Metrics) {
 	reportTicker := time.NewTicker(a.config.ReportInterval)
 	defer reportTicker.Stop()
@@ -133,6 +146,7 @@ func (a *Agent) runReporter(ctx context.Context, jobs chan<- models.Metrics) {
 	}
 }
 
+// runSenderWorker читает метрики из очереди jobs и отправляет их на сервер.
 func (a *Agent) runSenderWorker(ctx context.Context, workerID int, jobs <-chan models.Metrics) {
 	for metric := range jobs {
 		if err := a.sender.SendMetricJSONWithContext(ctx, metric); err != nil {

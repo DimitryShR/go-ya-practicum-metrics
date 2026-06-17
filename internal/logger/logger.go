@@ -1,25 +1,24 @@
+// Package logger предоставляет глобальный логгер на основе zap.Logger.
 package logger
 
 import "go.uber.org/zap"
 
+// Log — глобальный логгер. По умолчанию используется no-op логгер.
 var Log *zap.Logger = zap.NewNop()
 
+// Initialize инициализирует глобальный логгер с указанным уровнем логирования.
+// Уровень задаётся строкой: "info", "debug", "error".
 func Initialize(level string) error {
-	// парсим уровень логирования из строки, например "info", "debug", "error"
 	lvl, err := zap.ParseAtomicLevel(level)
 	if err != nil {
 		return err
 	}
-	// создаём конфигурацию логгера
 	cfg := zap.NewProductionConfig()
-	// устанавливаем уровень логирования в конфигурацию
 	cfg.Level = lvl
-	// создаём логгер на основе конфигурации
 	zl, err := cfg.Build()
 	if err != nil {
 		return err
 	}
-	// присваиваем глобальной переменной Log новый логгер
 	Log = zl
 	return nil
 }

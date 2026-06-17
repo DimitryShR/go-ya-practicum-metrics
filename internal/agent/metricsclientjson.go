@@ -11,11 +11,12 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
-// метод отправки одной метрики
+// SendMetricJSON отправляет одну метрику в JSON-формате (использует background context).
 func (c *MetricsClient) SendMetricJSON(metric models.Metrics) error {
 	return c.SendMetricJSONWithContext(context.Background(), metric)
 }
 
+// SendMetricJSONWithContext отправляет одну метрику в JSON-формате на эндпоинт /update.
 func (c *MetricsClient) SendMetricJSONWithContext(ctx context.Context, metric models.Metrics) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -56,7 +57,7 @@ func (c *MetricsClient) SendMetricJSONWithContext(ctx context.Context, metric mo
 	})
 }
 
-// метод для отправки всех метрик по очереди
+// SendAllMetricJSON отправляет массив метрик последовательно в JSON-формате.
 func (c *MetricsClient) SendAllMetricJSON(metrics []models.Metrics) error {
 	for _, metric := range metrics {
 		if err := c.SendMetricJSON(metric); err != nil {
@@ -66,7 +67,7 @@ func (c *MetricsClient) SendAllMetricJSON(metrics []models.Metrics) error {
 	return nil
 }
 
-// метод для отправки всех метрик пакетом
+// BatchSendMetricsJSON отправляет массив метрик пакетом в JSON-формате на эндпоинт /updates.
 func (c *MetricsClient) BatchSendMetricsJSON(metrics []models.Metrics) error {
 
 	var buf bytes.Buffer

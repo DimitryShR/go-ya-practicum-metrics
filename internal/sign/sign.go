@@ -1,3 +1,4 @@
+// Package sign предоставляет утилиты для HMAC-SHA256 подписи и верификации данных.
 package sign
 
 import (
@@ -6,17 +7,21 @@ import (
 	"encoding/hex"
 )
 
+// Signer предоставляет методы для подписи и проверки подписи данных с использованием HMAC-SHA256.
 type Signer struct {
 	key []byte
 }
 
+// NewSigner возвращает новый экземпляр *Signer с заданным ключом.
+// Если ключ пустой, подпись/верификация не выполняется.
 func NewSigner(key string) *Signer {
 	return &Signer{
 		key: []byte(key),
 	}
 }
 
-// Подпись для данных src, возвращаемая в виде строки в шестнадцатеричном формате
+// Sign подписывает данные src с использованием HMAC-SHA256.
+// Возвращает подпись в виде шестнадцатеричной строки.
 func (s *Signer) Sign(src []byte) string {
 	h := hmac.New(sha256.New, s.key)
 	h.Write(src)
@@ -24,9 +29,8 @@ func (s *Signer) Sign(src []byte) string {
 	return hex.EncodeToString(sum)
 }
 
-// Проверка подписи sign для данных src.
-// Ожидается sign в шестнадцатеричном формата строки,
-// который будет декодирован в байты для сравнения с вычисленной подписью.
+// Verify проверяет подпись sign для данных src.
+// Ожидает sign в виде шестнадцатеричной строки, декодирует её и сравнивает с вычисленной подписью.
 func (s *Signer) Verify(sign string, src []byte) (bool, error) {
 	bSign, err := hex.DecodeString(sign)
 	if err != nil {

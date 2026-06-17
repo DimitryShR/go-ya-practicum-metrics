@@ -7,9 +7,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
-	"go.uber.org/zap"
 )
 
 const (
@@ -49,8 +46,6 @@ func NewFileAuditor(ctx context.Context, filePath string) (*FileAuditor, error) 
 func (f *FileAuditor) openFile() error {
 	file, err := os.OpenFile(f.filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		logger.Log.Error("failed to open audit file",
-			zap.String("path", f.filePath), zap.Error(err))
 		return err
 	}
 	f.file = file

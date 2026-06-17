@@ -45,7 +45,7 @@ var largePayload = []byte(`[
 
 func BenchmarkGzipData_SmallPayload(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := compress.GzipData(smallPayload); err != nil {
 			b.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func BenchmarkGzipData_SmallPayload(b *testing.B) {
 
 func BenchmarkGzipData_LargePayload(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := compress.GzipData(largePayload); err != nil {
 			b.Fatal(err)
 		}

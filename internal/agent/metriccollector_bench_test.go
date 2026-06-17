@@ -11,8 +11,7 @@ func BenchmarkMetricsCollector_GetMetricsForReport(b *testing.B) {
 	collector.CollectRuntime()
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = collector.GetMetricsForReport()
 	}
 }
@@ -20,8 +19,7 @@ func BenchmarkMetricsCollector_GetMetricsForReport(b *testing.B) {
 func BenchmarkMetricsCollector_CollectAndReport(b *testing.B) {
 	collector := NewMetricsCollector()
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		collector.CollectRuntime()
 		_ = collector.GetMetricsForReport()
 	}

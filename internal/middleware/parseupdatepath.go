@@ -9,10 +9,14 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 )
 
+// MetricKey — тип ключа для контекста запроса.
 type MetricKey string
 
+// Metric — ключ для хранения распаршенной метрики в контексте запроса.
 const Metric MetricKey = "metric"
 
+// ParseUpdatePathHandler — middleware для парсинга URL-пути /update/{type}/{name}/{value}.
+// Извлекает тип, имя и значение метрики из пути и сохраняет их в контекст запроса.
 func ParseUpdatePathHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Middleware logic to parse the update path

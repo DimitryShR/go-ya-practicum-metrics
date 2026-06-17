@@ -12,6 +12,7 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
+// ServerConfig — конфигурация сервера метрик.
 type ServerConfig struct {
 	Address         string        // `env:"ADDRESS"`
 	LogLevel        string        // `env:"LOG_LEVEL"`
@@ -23,10 +24,11 @@ type ServerConfig struct {
 	SignKey         string        // `env:"KEY"`
 	AuditFile       string        // `env:"AUDIT_FILE"`
 	AuditURL        string        // `env:"AUDIT_URL"`
+	PprofAddress    string        // `env:PPROF_ADDRESS`
 }
 
-// Создаем новый экземпляр конфигурации сервера, загружая значения конфигурации
-// Приоритет загрузки: переменные окружения > флаги > значения по умолчанию
+// NewServerConfig создаёт конфигурацию сервера, загружая значения из флагов и переменных окружения.
+// Приоритет: env vars > flags > defaults.
 func NewServerConfig() *ServerConfig {
 	cfg := &ServerConfig{
 		Address:         ":8080",
@@ -39,6 +41,7 @@ func NewServerConfig() *ServerConfig {
 		SignKey:         "",
 		AuditFile:       "",
 		AuditURL:        "",
+		PprofAddress:    ":6060",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -55,6 +58,7 @@ func NewServerConfig() *ServerConfig {
 	return cfg
 }
 
+// parseFlags парсит флаги командной строки.
 func (sc *ServerConfig) parseFlags() error {
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	// Подавляем вывод
@@ -63,6 +67,7 @@ func (sc *ServerConfig) parseFlags() error {
 	return sc.parseFlagSet(fs, os.Args[1:])
 }
 
+// parseFlagSet парсит набор флагов.
 func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&sc.Address, "a", sc.Address, "Server address")
 	fs.StringVar(&sc.LogLevel, "loglvl", sc.LogLevel, "Log level")
@@ -83,6 +88,7 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
 	fs.StringVar(&sc.AuditFile, "audit-file", sc.AuditFile, "Audit log file path")
 	fs.StringVar(&sc.AuditURL, "audit-url", sc.AuditURL, "Audit log remote URL")
+	fs.StringVar(&sc.PprofAddress, "pprof", sc.PprofAddress, "Pprof address")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -117,6 +123,7 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 
 }
 
+// envParse загружает конфигурацию из переменных окружения.
 func (sc *ServerConfig) envParse() error {
 	tmpCfg := struct {
 		Address         *string  `env:"ADDRESS"`
@@ -129,6 +136,7 @@ func (sc *ServerConfig) envParse() error {
 		SignKey         *string  `env:"KEY"`
 		AuditFile       *string  `env:"AUDIT_FILE"`
 		AuditURL        *string  `env:"AUDIT_URL"`
+		PprofAddress    *string  `env:"PPROF_ADDRESS"`
 	}{}
 
 	err := env.Parse(&tmpCfg)
@@ -178,10 +186,14 @@ func (sc *ServerConfig) envParse() error {
 	if tmpCfg.AuditURL != nil {
 		sc.AuditURL = *tmpCfg.AuditURL
 	}
+	if tmpCfg.PprofAddress != nil {
+		sc.PprofAddress = *tmpCfg.PprofAddress
+	}
 
 	return nil
 }
 
+// validate проверяет корректность конфигурации.
 func (sc *ServerConfig) validate() error {
 	var errs []error
 	if sc.Address == "" {
