@@ -32,6 +32,12 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 type serverEntry struct {
 	srv     *http.Server
 	timeout time.Duration
@@ -51,6 +57,7 @@ const (
 )
 
 func main() {
+	printBuildInfo()
 	if err := run(); err != nil {
 		panic(err)
 	}
@@ -349,4 +356,19 @@ func initFileStorage(ctx context.Context, cfg *config.ServerConfig) (*repository
 	}
 
 	return memStorage, nil
+}
+
+func printBuildInfo() {
+	if buildVersion == "" {
+		buildVersion = "N/A"
+	}
+	if buildDate == "" {
+		buildDate = "N/A"
+	}
+	if buildCommit == "" {
+		buildCommit = "N/A"
+	}
+	fmt.Fprintln(os.Stdout, "Build version:", buildVersion)
+	fmt.Fprintln(os.Stdout, "Build date:", buildDate)
+	fmt.Fprintln(os.Stdout, "Build commit:", buildCommit)
 }
