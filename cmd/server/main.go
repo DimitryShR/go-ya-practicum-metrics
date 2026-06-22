@@ -261,7 +261,7 @@ func getMode(cfg *config.ServerConfig) storageMode {
 	return modeMemory
 }
 
-func initPostgresStorage(cfg *config.ServerConfig, db **sql.DB) (service.Storage, error) {
+func initPostgresStorage(cfg *config.ServerConfig, db **sql.DB) (*repository.PgStorage, error) {
 	migrateURL := cfg.DBMigrateDsn.GetURL()
 	if migrateURL == "" {
 		logger.Log.Info("DB migrate DSN not provided, try using main DB DSN for migrations")
@@ -309,7 +309,7 @@ func runMigrations(migrateDSN string) error {
 	return nil
 }
 
-func initFileStorage(ctx context.Context, cfg *config.ServerConfig) (service.Storage, error) {
+func initFileStorage(ctx context.Context, cfg *config.ServerConfig) (*repository.MemStorage, error) {
 	memStorage := repository.NewMemStorage()
 
 	if cfg.Restore {

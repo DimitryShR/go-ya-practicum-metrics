@@ -18,6 +18,10 @@ cmd/server/main
 cmd/server/server
 cmd/audit/main
 cmd/audit/audit
+cmd/reset/main
+cmd/reset/reset
+cmd/staticlint/main
+cmd/staticlint/staticlint
 
 # Audit logs
 *.log
