@@ -2,7 +2,10 @@
 // с методом Reset(). Использует sync.Pool для thread-safe хранения объектов.
 package pool
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // Resetter — интерфейс для типов, поддерживающих сброс состояния.
 type Resetter interface {
@@ -17,14 +20,18 @@ type Pool[T Resetter] struct {
 
 // New создаёт и возвращает новый Pool для объектов типа T.
 // Функция newFunc используется для создания новых объектов, когда пул пуст.
-func New[T Resetter](newFunc func() T) *Pool[T] {
+// Возвращает ошибку, если newFunc равна nil.
+func New[T Resetter](newFunc func() T) (*Pool[T], error) {
+	if newFunc == nil {
+		return nil, errors.New("pool: newFunc must not be nil")
+	}
 	return &Pool[T]{
 		pool: &sync.Pool{
 			New: func() interface{} {
 				return newFunc()
 			},
 		},
-	}
+	}, nil
 }
 
 // Get возвращает объект типа T из пула.

@@ -37,7 +37,10 @@ func newBuffer() *buffer {
 // Example_usage демонстрирует базовое использование Pool
 func Example_usage() {
 	// Создаём пул с фабрикой
-	p := pool.New(newBuffer)
+	p, err := pool.New(newBuffer)
+	if err != nil {
+		panic(err)
+	}
 
 	// Получаем буфер из пула
 	buf := p.Get()
@@ -60,7 +63,10 @@ func Example_usage() {
 // Example_concurrent демонстрирует многопоточное использование Pool.
 // Несколько горутин одновременно получают, используют и возвращают объекты.
 func Example_concurrent() {
-	p := pool.New(newBuffer)
+	p, err := pool.New(newBuffer)
+	if err != nil {
+		panic(err)
+	}
 
 	var wg sync.WaitGroup
 

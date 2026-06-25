@@ -1,6 +1,6 @@
 module github.com/DimitryShR/go-ya-practicum-metrics
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/butuzov/ireturn v0.4.1

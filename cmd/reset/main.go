@@ -268,12 +268,6 @@ func generateFile(pkgName string, structs []structInfo, pkgTypes map[string]ast.
 		buf.WriteString("\n")
 	}
 
-	// форматируем
-	// formatted, err := format.Source(buf.Bytes())
-	// if err != nil {
-	// 	return nil, fmt.Errorf("format error: %w\n%s", err, buf.String())
-	// }
-
 	// Обрабатываем через imports (форматирование + добавление/удаление импортов)
 	formatted, err := imports.Process(filename, buf.Bytes(), nil)
 	if err != nil {

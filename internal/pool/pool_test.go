@@ -32,7 +32,10 @@ func newTestStruct() *testStruct {
 
 // TestNew проверяет создание пула
 func TestNew(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 	if p == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -44,7 +47,10 @@ func TestNew(t *testing.T) {
 // TestGetEmptyPool проверяет Get() когда пул пуст.
 // sync.Pool создаёт новый объект через фабрику, поэтому объект приходит с начальным состоянием, заданным фабрикой.
 func TestGetEmptyPool(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 	obj := p.Get()
 
 	if obj == nil {
@@ -54,7 +60,10 @@ func TestGetEmptyPool(t *testing.T) {
 
 // TestGetReuse проверяет повторное использование объекта из пула
 func TestGetReuse(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 
 	// Получаем объект, модифицируем и возвращаем в пул
 	obj1 := p.Get()
@@ -72,9 +81,23 @@ func TestGetReuse(t *testing.T) {
 	}
 }
 
+// TestNewNilFunc проверяет, что New возвращает ошибку при nil newFunc
+func TestNewNilFunc(t *testing.T) {
+	p, err := New[*testStruct](nil)
+	if err == nil {
+		t.Fatal("expected error for nil newFunc, got nil")
+	}
+	if p != nil {
+		t.Fatal("expected nil pool for nil newFunc")
+	}
+}
+
 // TestPutReset проверяет, что Put() вызывает Reset()
 func TestPutReset(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 
 	obj := p.Get()
 	obj.name = "should_be_reset"
@@ -91,7 +114,10 @@ func TestPutReset(t *testing.T) {
 
 // TestConcurrent проверяет многопоточное использование пула
 func TestConcurrent(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 	var wg sync.WaitGroup
 	iterations := 100
 	goroutines := 10
@@ -114,7 +140,10 @@ func TestConcurrent(t *testing.T) {
 
 // TestMultipleGets проверяет получение нескольких объектов
 func TestMultipleGets(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 
 	objs := make([]*testStruct, 5)
 	for i := 0; i < 5; i++ {
@@ -140,7 +169,10 @@ func TestMultipleGets(t *testing.T) {
 
 // TestConcurrentResetCount проверяет, что Reset() вызывается при каждом Get/Put
 func TestConcurrentResetCount(t *testing.T) {
-	p := New(newTestStruct)
+	p, err := New(newTestStruct)
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 
 	var wg sync.WaitGroup
 	iterations := 50
@@ -175,9 +207,12 @@ func TestConcurrentResetCount(t *testing.T) {
 // TestNilSafety проверяет безопасность при nil объектах
 func TestNilSafety(t *testing.T) {
 	// Тест с указательным типом
-	p := New(func() *testStruct {
+	p, err := New(func() *testStruct {
 		return newTestStruct()
 	})
+	if err != nil {
+		t.Fatal("New() returned error:", err)
+	}
 
 	obj := p.Get()
 	if obj == nil {

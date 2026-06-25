@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	buildVersion string
-	buildDate    string
-	buildCommit  string
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 func main() {
@@ -37,15 +37,6 @@ func main() {
 }
 
 func printBuildInfo() {
-	if buildVersion == "" {
-		buildVersion = "N/A"
-	}
-	if buildDate == "" {
-		buildDate = "N/A"
-	}
-	if buildCommit == "" {
-		buildCommit = "N/A"
-	}
 	fmt.Fprintln(os.Stdout, "Build version:", buildVersion)
 	fmt.Fprintln(os.Stdout, "Build date:", buildDate)
 	fmt.Fprintln(os.Stdout, "Build commit:", buildCommit)
