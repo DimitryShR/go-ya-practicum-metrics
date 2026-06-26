@@ -12,6 +12,7 @@ package osexitcheck
 
 import (
 	"go/ast"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -31,6 +32,10 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	// Only analyze packages named "main"
 	if pass.Pkg.Name() != "main" {
+		return nil, nil
+	}
+
+	if pass.TypesInfo == nil {
 		return nil, nil
 	}
 
@@ -60,7 +65,18 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				}
 
 				pkgIdent, ok := sel.X.(*ast.Ident)
-				if !ok || pkgIdent.Name != "os" || sel.Sel.Name != "Exit" {
+				if !ok || sel.Sel.Name != "Exit" {
+					return true
+				}
+
+				// Resolve the package identifier through TypesInfo.Uses
+				// to handle import aliases (e.g., import myos "os").
+				obj := pass.TypesInfo.Uses[pkgIdent]
+				if obj == nil {
+					return true
+				}
+				pkgName, ok := obj.(*types.PkgName)
+				if !ok || pkgName.Imported().Name() != "os" {
 					return true
 				}
 

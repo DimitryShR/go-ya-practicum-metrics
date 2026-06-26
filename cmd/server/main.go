@@ -32,6 +32,12 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 type serverEntry struct {
 	srv     *http.Server
 	timeout time.Duration
@@ -51,25 +57,26 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
-		panic(err)
-	}
-}
-
-func run() error {
-	var storage service.Storage
-	var db *sql.DB
+	printBuildInfo()
 
 	cfg := config.NewServerConfig()
 
-	fmt.Printf("Starting server on %s\n", cfg.Address)
-
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
-		return err
+		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
+		os.Exit(1)
 	}
 	defer logger.Log.Sync()
 
 	logger.Log.Info("Running server", zap.String("address", cfg.Address))
+
+	if err := run(cfg); err != nil {
+		logger.Log.Fatal("Server failed to start", zap.Error(err))
+	}
+}
+
+func run(cfg *config.ServerConfig) error {
+	var storage service.Storage
+	var db *sql.DB
 
 	var signer *sign.Signer
 	if cfg.SignKey != "" {
@@ -349,4 +356,10 @@ func initFileStorage(ctx context.Context, cfg *config.ServerConfig) (*repository
 	}
 
 	return memStorage, nil
+}
+
+func printBuildInfo() {
+	fmt.Fprintln(os.Stdout, "Build version:", buildVersion)
+	fmt.Fprintln(os.Stdout, "Build date:", buildDate)
+	fmt.Fprintln(os.Stdout, "Build commit:", buildCommit)
 }
