@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,7 +11,15 @@ import (
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
+	printBuildInfo()
+
 	// Создаем контекст с обработкой сигналов
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt,
@@ -25,4 +34,10 @@ func main() {
 	// Создаем и запускаем агент
 	ag := agent.NewAgent(cfg)
 	ag.Run(ctx)
+}
+
+func printBuildInfo() {
+	fmt.Fprintln(os.Stdout, "Build version:", buildVersion)
+	fmt.Fprintln(os.Stdout, "Build date:", buildDate)
+	fmt.Fprintln(os.Stdout, "Build commit:", buildCommit)
 }
