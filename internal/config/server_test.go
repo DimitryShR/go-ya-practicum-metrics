@@ -20,6 +20,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		AuditFile:       "",
 		AuditURL:        "",
 		PprofAddress:    ":6060",
+		CryptoKey:       "/path/to/private.pem",
 	}
 
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
@@ -35,6 +36,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		"-audit-file=/var/log/audit.json",
 		"-audit-url=http://audit.example.com/events",
 		"-pprof=localhost:6061",
+		"-crypto-key=/path/to/flag/private.pem",
 	})
 	require.NoError(t, err)
 
@@ -58,6 +60,7 @@ func TestServerConfigParseFlagSet(t *testing.T) {
 		cfg.DBMigrateDsn.GetURL(),
 	)
 	assert.Equal(t, "localhost:6061", cfg.PprofAddress)
+	assert.Equal(t, "/path/to/flag/private.pem", cfg.CryptoKey)
 }
 
 func TestServerConfigAuditDefaultsEmpty(t *testing.T) {

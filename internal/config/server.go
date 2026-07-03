@@ -22,6 +22,7 @@ type ServerConfig struct {
 	DBDsn           db.PgConn     // `env:"DATABASE_DSN"`
 	DBMigrateDsn    db.PgConn     // `env:"DATABASE_MIGRATE_DSN"`
 	SignKey         string        // `env:"KEY"`
+	CryptoKey       string        // `env:"CRYPTO_KEY"`
 	AuditFile       string        // `env:"AUDIT_FILE"`
 	AuditURL        string        // `env:"AUDIT_URL"`
 	PprofAddress    string        // `env:PPROF_ADDRESS`
@@ -39,6 +40,7 @@ func NewServerConfig() *ServerConfig {
 		DBDsn:           db.PgConn{},
 		DBMigrateDsn:    db.PgConn{},
 		SignKey:         "",
+		CryptoKey:       "",
 		AuditFile:       "",
 		AuditURL:        "",
 		PprofAddress:    ":6060",
@@ -86,6 +88,7 @@ func (sc *ServerConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	fs.StringVar(&dbMigrateDsnStr, "m", "", "DSN for migrate to db")
 
 	fs.StringVar(&sc.SignKey, "k", sc.SignKey, "Key for sign data")
+	fs.StringVar(&sc.CryptoKey, "crypto-key", sc.CryptoKey, "Path to private key file for decryption")
 	fs.StringVar(&sc.AuditFile, "audit-file", sc.AuditFile, "Audit log file path")
 	fs.StringVar(&sc.AuditURL, "audit-url", sc.AuditURL, "Audit log remote URL")
 	fs.StringVar(&sc.PprofAddress, "pprof", sc.PprofAddress, "Pprof address")
@@ -134,6 +137,7 @@ func (sc *ServerConfig) envParse() error {
 		DBDsn           *string  `env:"DATABASE_DSN"`
 		DBMigrateDsn    *string  `env:"DATABASE_MIGRATE_DSN"`
 		SignKey         *string  `env:"KEY"`
+		CryptoKey       *string  `env:"CRYPTO_KEY"`
 		AuditFile       *string  `env:"AUDIT_FILE"`
 		AuditURL        *string  `env:"AUDIT_URL"`
 		PprofAddress    *string  `env:"PPROF_ADDRESS"`
@@ -179,6 +183,9 @@ func (sc *ServerConfig) envParse() error {
 	}
 	if tmpCfg.SignKey != nil {
 		sc.SignKey = *tmpCfg.SignKey
+	}
+	if tmpCfg.CryptoKey != nil {
+		sc.CryptoKey = *tmpCfg.CryptoKey
 	}
 	if tmpCfg.AuditFile != nil {
 		sc.AuditFile = *tmpCfg.AuditFile

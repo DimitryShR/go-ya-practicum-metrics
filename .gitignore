@@ -28,8 +28,10 @@ cmd/staticlint/staticlint
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-dev/
 
 # IDEs directories
 .idea
 .vscode
+
+# Certs
+.certs
