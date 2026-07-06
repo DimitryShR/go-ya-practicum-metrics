@@ -1,16 +1,26 @@
 package agent
 
 import (
+	"bytes"
 	"compress/gzip"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/crypto/rsacrypto"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 )
@@ -187,6 +197,103 @@ func TestMetricsClient_SendMetricJSON(t *testing.T) {
 			t.Error("Expected network error but got none")
 		}
 	})
+}
+
+func TestMetricsClient_SendMetricJSON_WithEncryption(t *testing.T) {
+	// Генерируем тестовую RSA-пару ключей
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+
+	// Создаём самоподписанный сертификат
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1658),
+		Subject: pkix.Name{
+			Organization: []string{"Test"},
+			Country:      []string{"RU"},
+		},
+		IPAddresses: []net.IP{
+			net.ParseIP("127.0.0.1"),
+			net.ParseIP("::1"),
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+
+	// Сохраняем сертификат во временный файл
+	certFile, err := os.CreateTemp(t.TempDir(), "cert*.pem")
+	if err != nil {
+		t.Fatalf("failed to create temp cert file: %v", err)
+	}
+	defer certFile.Close()
+
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	if err != nil {
+		t.Fatalf("failed to encode cert: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Проверяем заголовок X-Encrypted
+		if r.Header.Get("X-Encrypted") != "true" {
+			t.Error("Expected X-Encrypted: true header")
+		}
+
+		// Читаем зашифрованное тело
+		encryptedBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("failed to read body: %v", err)
+		}
+		defer r.Body.Close()
+
+		// Расшифровываем
+		decryptedBody, err := rsacrypto.Decrypt(privateKey, encryptedBody)
+		if err != nil {
+			t.Fatalf("failed to decrypt body: %v", err)
+		}
+
+		// Декомпрессия
+		gr, err := gzip.NewReader(bytes.NewReader(decryptedBody))
+		if err != nil {
+			t.Fatalf("failed to create gzip reader: %v", err)
+		}
+		defer gr.Close()
+
+		var got models.Metrics
+		if err := json.NewDecoder(gr).Decode(&got); err != nil {
+			t.Fatalf("failed to decode body: %v", err)
+		}
+		if got.ID != "testMetric" || got.MType != models.Gauge || got.Value == nil || *got.Value != 10.5 {
+			t.Fatalf("unexpected metric in body: %+v", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	cfg := config.NewTestAgentConfig(server.URL)
+	cfg.CryptoKey = certFile.Name()
+	client := NewMetricsClient(cfg)
+	if client == nil {
+		t.Fatal("Failed to create MetricsClient")
+	}
+
+	metric := models.Metrics{
+		MType: models.Gauge,
+		ID:    "testMetric",
+		Value: func() *float64 { v := 10.5; return &v }(),
+	}
+
+	if err := client.SendMetricJSON(metric); err != nil {
+		t.Errorf("SendMetricJSON() error = %v", err)
+	}
 }
 
 func TestMetricsClient_SendAllMetricJSON(t *testing.T) {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"path"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/crypto/rsacrypto"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/models"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/sign"
 	"github.com/go-resty/resty/v2"
@@ -17,9 +19,10 @@ import (
 // MetricsClient — HTTP-клиент для отправки метрик на сервер.
 // Использует resty для выполнения запросов.
 type MetricsClient struct {
-	config *config.AgentConfig
-	client *resty.Client
-	signer *sign.Signer
+	config    *config.AgentConfig
+	client    *resty.Client
+	signer    *sign.Signer
+	publicKey *rsa.PublicKey
 }
 
 // NewMetricsClient создаёт новый MetricsClient с базовым URL сервера.
@@ -32,10 +35,20 @@ func NewMetricsClient(cfg *config.AgentConfig) *MetricsClient {
 		signer = sign.NewSigner(cfg.SignKey)
 	}
 
+	var publicKey *rsa.PublicKey
+	if cfg.CryptoKey != "" {
+		var err error
+		publicKey, err = rsacrypto.LoadPublicKey(cfg.CryptoKey)
+		if err != nil {
+			fmt.Printf("failed to load public key: %v\n", err)
+		}
+	}
+
 	return &MetricsClient{
-		config: cfg,
-		client: restyClient,
-		signer: signer,
+		config:    cfg,
+		client:    restyClient,
+		signer:    signer,
+		publicKey: publicKey,
 	}
 }
 
@@ -50,6 +63,26 @@ func (c *MetricsClient) setHashHeader(r *resty.Request, body []byte) *resty.Requ
 		return r
 	}
 	return r.SetHeader("HashSHA256", c.signer.Sign(body))
+}
+
+// setHashHeader устанавливает заголовок X-Encrypted, если установлен rsa.PublicKey.
+func (c *MetricsClient) setEncryptHeader(r *resty.Request) *resty.Request {
+	if c.publicKey == nil {
+		return r
+	}
+	return r.SetHeader("X-Encrypted", "true")
+}
+
+// encryptBody шифрует тело запроса, если установлен rsa.publicKey
+func (c *MetricsClient) encryptBody(body []byte) ([]byte, error) {
+	if c.publicKey != nil {
+		encryptedBody, err := rsacrypto.Encrypt(c.publicKey, body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt request body: %w", err)
+		}
+		return encryptedBody, nil
+	}
+	return body, nil
 }
 
 // getMetricURL формирует URL для отправки метрики через URL-путь.

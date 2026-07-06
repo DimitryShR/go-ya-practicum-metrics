@@ -21,6 +21,7 @@ type AgentConfig struct {
 	ServerAddress  string
 	SignKey        string
 	RateLimit      int
+	CryptoKey      string
 }
 
 // NewAgentConfig создаёт конфигурацию агента, загружая значения из флагов и переменных окружения.
@@ -32,6 +33,7 @@ func NewAgentConfig() *AgentConfig {
 		ReportInterval: 10 * time.Second,
 		SignKey:        "",
 		RateLimit:      1,
+		CryptoKey:      "",
 	}
 	if err := cfg.parseFlags(); err != nil {
 		fmt.Println("config flags parse error:", err)
@@ -56,6 +58,7 @@ func NewTestAgentConfig(serverAddress string) *AgentConfig {
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
 		RateLimit:      1,
+		CryptoKey:      "",
 	}
 }
 
@@ -74,6 +77,7 @@ func (ac *AgentConfig) envParse() error {
 		ServerAddress  *string  `env:"ADDRESS"`
 		SignKey        *string  `env:"KEY"`
 		RateLimit      *int     `env:"RATE_LIMIT"`
+		CryptoKey      *string  `env:"CRYPTO_KEY"`
 	}{}
 	err := env.Parse(&tmpCfg)
 	if err != nil {
@@ -95,6 +99,9 @@ func (ac *AgentConfig) envParse() error {
 	if tmpCfg.RateLimit != nil {
 		ac.RateLimit = *tmpCfg.RateLimit
 	}
+	if tmpCfg.CryptoKey != nil {
+		ac.CryptoKey = *tmpCfg.CryptoKey
+	}
 	return nil
 }
 
@@ -112,6 +119,7 @@ func (ac *AgentConfig) parseFlagSet(fs *flag.FlagSet, args []string) error {
 	// Флаг для адреса сервера
 	fs.StringVar(&ac.ServerAddress, "a", ac.ServerAddress, "Server address")
 	fs.StringVar(&ac.SignKey, "k", ac.SignKey, "Key for sign data")
+	fs.StringVar(&ac.CryptoKey, "crypto-key", ac.CryptoKey, "Path to public key file for encryption")
 	// Флаги для интервалов времени
 	var pollIntervalSec, reportIntervalSec float64
 	fs.Float64Var(&pollIntervalSec, "p", ac.PollInterval.Seconds(), "Poll interval in seconds")
@@ -154,7 +162,7 @@ func (ac *AgentConfig) validate() error {
 
 func (ac *AgentConfig) String() string {
 	return fmt.Sprintf(
-		"Server address: %s; Poll interval: %s; Report interval: %s; Sign key: %s; Rate limit: %d",
-		ac.ServerAddress, ac.PollInterval, ac.ReportInterval, ac.SignKey, ac.RateLimit,
+		"Server address: %s; Poll interval: %s; Report interval: %s; Sign key: %s; Rate limit: %d; Crypto key: %s",
+		ac.ServerAddress, ac.PollInterval, ac.ReportInterval, ac.SignKey, ac.RateLimit, ac.CryptoKey,
 	)
 }

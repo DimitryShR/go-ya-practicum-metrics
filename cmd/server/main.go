@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/audit"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/config"
+	"github.com/DimitryShR/go-ya-practicum-metrics/internal/crypto/rsacrypto"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/handler"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/logger"
 	"github.com/DimitryShR/go-ya-practicum-metrics/internal/middleware"
@@ -83,6 +85,15 @@ func run(cfg *config.ServerConfig) error {
 		signer = sign.NewSigner(cfg.SignKey)
 	}
 
+	var privateKey *rsa.PrivateKey
+	if cfg.CryptoKey != "" {
+		var err error
+		privateKey, err = rsacrypto.LoadPrivateKey(cfg.CryptoKey)
+		if err != nil {
+			return fmt.Errorf("load private key: %w", err)
+		}
+	}
+
 	mode := getMode(cfg)
 	logger.Log.Info("Storage mode selected", zap.String("mode", string(mode)))
 
@@ -142,7 +153,7 @@ func run(cfg *config.ServerConfig) error {
 	metricHandler := handler.NewMetricHandler(metricService, auditPublisher)
 
 	pingHandler := handler.NewPingHandler(db)
-	router := newRouter(metricHandler, pingHandler, signer)
+	router := newRouter(metricHandler, pingHandler, signer, privateKey)
 
 	mainSrv := runServer(cfg.Address, router)
 
@@ -237,10 +248,15 @@ func newRouter(
 	metricHandler *handler.MetricHandler,
 	pingHandler *handler.PingHandler,
 	signer *sign.Signer,
+	privateKey *rsa.PrivateKey,
 ) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
-	r.Use(middleware.LogRequest, middleware.GzipMiddleware)
+	r.Use(
+		middleware.LogRequest,
+		middleware.DecryptMiddleware(privateKey),
+		middleware.GzipMiddleware,
+	)
 	if signer != nil {
 		r.Use(middleware.SignMiddleware(signer))
 	}
