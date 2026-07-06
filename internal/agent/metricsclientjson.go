@@ -31,15 +31,21 @@ func (c *MetricsClient) SendMetricJSONWithContext(ctx context.Context, metric mo
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
 
+	bodyToSend, err := c.encryptBody(compressedBody)
+	if err != nil {
+		return err
+	}
+
 	url := fmt.Sprintf("%s/update", c.config.ServerAddress)
 
 	return c.withRetry(ctx, func() error {
 		req := c.client.R().SetContext(ctx)
 		c.setHashHeader(req, buf.Bytes())
+		c.setEncryptHeader(req)
+		req.SetHeader("Content-Encoding", "gzip").
+			SetHeader("Content-Type", "application/json")
 		resp, err := req.
-			SetHeader("Content-Encoding", "gzip").
-			SetHeader("Content-Type", "application/json").
-			SetBody(compressedBody).
+			SetBody(bodyToSend).
 			Post(url)
 
 		if err != nil {
@@ -81,15 +87,21 @@ func (c *MetricsClient) BatchSendMetricsJSON(metrics []models.Metrics) error {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
 
+	bodyToSend, err := c.encryptBody(compressedBody)
+	if err != nil {
+		return err
+	}
+
 	url := fmt.Sprintf("%s/updates", c.config.ServerAddress)
 
 	return c.withRetry(context.Background(), func() error {
 		req := c.client.R()
 		c.setHashHeader(req, buf.Bytes())
+		c.setEncryptHeader(req)
+		req.SetHeader("Content-Encoding", "gzip").
+			SetHeader("Content-Type", "application/json")
 		resp, err := req.
-			SetHeader("Content-Encoding", "gzip").
-			SetHeader("Content-Type", "application/json").
-			SetBody(compressedBody).
+			SetBody(bodyToSend).
 			Post(url)
 
 		if err != nil {
